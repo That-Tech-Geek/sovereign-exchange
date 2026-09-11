@@ -1,0 +1,6 @@
+{
+  "name": "Exchange Core",
+  "description": "Ultra-low-latency matching engine executing country-share trades with zero-allocation CLOB, slab allocator, and live telemetry cockpit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,169 @@
+#![allow(dead_code, unused_imports)]
+
+mod constants;
+mod pool;
+mod order;
+mod book;
+mod engine;
+mod ring;
+mod scavenger;
+mod ticker;
+mod metrics;
+mod health;
+
+use core_affinity::set_for_current;
+use crossbeam_channel::unbounded;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Instant;
+
+fn main() {
+    println!("============================================================");
+    println!("🚀 Starting Exchange Core Engine - Country Shares Trading");
+    println!("   Target: Sub-5µs latency | 200k+ orders/sec | 5M Order Pool");
+    println!("============================================================");
+    
+    // --- 1. PIN MATCHING THREAD TO CORE 0 ---
+    if let Some(core_ids) = core_affinity::get_core_ids() {
+        if !core_ids.is_empty() {
+            let core = core_ids[constants::CPU_CORE_MATCHING % core_ids.len()];
+            if set_for_current(core) {
+                println!("✅ Matching core pinned successfully to Core {:?}", core.id);
+            } else {
+                eprintln!("⚠️ Warning: Failed to set CPU affinity for Core 0 (Continuing without hard pinning)");
+            }
+        }
+    } else {
+        println!("ℹ️ CPU affinity detection unavailable on this virtualized environment");
+    }
+
+    // --- 2. CREATE TELEMETRY & CHANNELS ---
+    let (trade_tx, trade_rx) = unbounded();
+    let is_running = Arc::new(AtomicBool::new(true));
+    let metrics = Arc::new(metrics::PerformanceMetrics::new());
+
+    // --- 3. SPAWN SCAVENGER ON CORE 1 ---
+    thread::Builder::new()
+        .name("scavenger".to_string())
+        .spawn(move || {
+            if let Some(core_ids) = core_affinity::get_core_ids() {
+                if core_ids.len() > 1 {
+                    let core = core_ids[constants::CPU_CORE_SCAVENGER % core_ids.len()];
+                    let _ = set_for_current(core);
+                    println!("✅ Scavenger thread pinned to Core {:?}", core.id);
+                }
+            }
+            scavenger::run(trade_rx);
+        })
+        .expect("Failed to spawn scavenger thread");
+
+    // --- 4. INSTANTIATE THE ENGINE & RING BUFFER ---
+    println!("📦 Pre-allocating OrderPool slab (5,000,000 slots)...");
+    let init_start = Instant::now();
+    let mut engine = engine::MatchingEngine::new();
+    let ring = ring::RingBuffer::new();
+    println!("✅ OrderPool initialized in {:.2?}", init_start.elapsed());
+
+    // --- 5. SPAWN HTTP HEALTH CHECK SERVER ON SEPARATE THREAD ---
+    let health_ctx = health::HealthContext::new(
+        is_running.clone(),
+        metrics.clone(),
+        ring.clone(),
+        constants::HTTP_PORT,
+    );
+    health::start_health_server(health_ctx, constants::HTTP_PORT);
+
+    // --- 6. RUN INITIAL WARMUP & VALIDATION BENCHMARK ---
+    println!("🔥 Running warmup benchmark (10,000 synthetic country orders)...");
+    let mut warmup_trades = 0usize;
+    let warmup_start = Instant::now();
+
+    for i in 0..10_000 {
+        let side = (i % 2) as u8; // Alternate buy and sell
+        let price = 10000 + ((i * 7) % 50) as u32; // Price fluctuation around 100.00
+        let packet = order::OrderPacket {
+            order_id: (i + 1) as u64,
+            account_id: (100 + (i % 50)) as u32,
+            ticker_id: (i % 12) as u16, // USA, GER, JPN, etc.
+            side,
+            price,
+            quantity: 100,
+            timestamp: 1_700_000_000_000_000_000 + i as u64,
+            _pad: 0,
+        };
+
+        let t0 = Instant::now();
+        let idx = engine.pool.allocate_from_packet(&packet);
+        let count = engine.process_order(idx);
+        let elapsed_nanos = t0.elapsed().as_nanos() as u64;
+        metrics.record_order_latency(elapsed_nanos, count);
+
+        warmup_trades += count;
+        if count > 0 {
+            for t in 0..count {
+                let _ = trade_tx.send(engine.trades[t]);
+            }
+        }
+    }
+
+    let warmup_duration = warmup_start.elapsed();
+    let micros = warmup_duration.as_micros() as f64 / 10_000.0;
+    println!("✅ Warmup complete: 10,000 orders matched in {:.2?} (~{:.2} µs/order)", warmup_duration, micros);
+    println!("   Trades generated: {}", warmup_trades);
+    println!("   Bids levels: {}, Asks levels: {}", engine.book.bids.len(), engine.book.asks.len());
+
+    // --- 7. VERIFY ORDER CANCELLATION ---
+    let cancel_test_id = 888_888u64;
+    let cancel_packet = order::OrderPacket {
+        order_id: cancel_test_id,
+        account_id: 999,
+        ticker_id: 0,
+        side: 0,
+        price: 9000,
+        quantity: 50,
+        timestamp: 123456,
+        _pad: 0,
+    };
+    let test_idx = engine.pool.allocate_from_packet(&cancel_packet);
+    engine.process_order(test_idx);
+    let cancel_success = engine.cancel_order(cancel_test_id);
+    assert!(cancel_success, "Cancellation must succeed for resting order");
+    println!("✅ Order cancellation verified on live engine (Order ID: {})", cancel_test_id);
+
+    // --- 8. THE HOT LOOP ---
+    println!("⚡ Matching engine active and listening on ring buffer...");
+    println!("   Press Ctrl+C to terminate or submit orders via ring buffer.");
+
+    let mut idle_spins = 0u64;
+    loop {
+        let mut had_work = false;
+
+        // Try to pop orders from the ring buffer
+        while let Some(idx) = ring.try_recv() {
+            had_work = true;
+            idle_spins = 0;
+
+            let t0 = Instant::now();
+            // Process the order (E[S] hot path execution)
+            let trade_count = engine.process_order(idx);
+            let elapsed_nanos = t0.elapsed().as_nanos() as u64;
+            metrics.record_order_latency(elapsed_nanos, trade_count);
+            
+            // Forward trades to the background scavenger
+            if trade_count > 0 {
+                for i in 0..trade_count {
+                    let _ = trade_tx.send(engine.trades[i]);
+                }
+            }
+        }
+        
+        if !had_work {
+            idle_spins += 1;
+            if idle_spins > 10_000 {
+                // Yield to prevent pegging 100% CPU on empty test spins
+                thread::yield_now();
+            }
+        }
+    }
+}
