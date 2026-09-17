@@ -1,4 +1,5 @@
-use crate::pool::OrderPool;
+use crate::command::{NewOrder, OrderCommand, OrderSide, ReplaceOrder};
+use crate::pool::{CommandKind, OrderPool};
 use crate::sequence::SequenceNumber;
 
 /// Client-supplied identifier for an order.
@@ -11,10 +12,6 @@ use crate::sequence::SequenceNumber;
 pub struct ClientOrderId(pub u64);
 
 /// Exchange-assigned identifier for an accepted order.
-///
-/// Exchange IDs are monotonically allocated by the single matching engine and
-/// are independent of client identifiers. Zero is reserved for non-resting
-/// command records such as cancellation requests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct ExchangeOrderId(pub u64);
@@ -28,21 +25,20 @@ pub struct OrderKey {
 
 /// Binary order packet (32 bytes total).
 ///
-/// `client_order_id` occupies the exact same 64-bit wire position previously
-/// named `order_id`. Renaming the Rust field does not change the binary layout.
-/// The exchange order ID and canonical sequence are assigned after admission
-/// and are never supplied by the client.
+/// The packet is a transport representation only. Its legacy numeric `side`
+/// field is decoded once by `OrderCommand::from_packet`; matching logic uses
+/// typed commands and never interprets `side == 2` as cancellation.
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrderPacket {
-    pub client_order_id: u64, // 8 bytes: client-supplied order identity
-    pub account_id: u32,      // 4 bytes: account ID
-    pub instrument_id: u16,   // 2 bytes: instrument ID
-    pub side: u8,             // 1 byte: 0 = Buy, 1 = Sell, 2 = Cancel
-    pub price: u32,            // 4 bytes: scaled integer price
-    pub quantity: u32,         // 4 bytes: total quantity
-    pub timestamp: u64,        // 8 bytes: client timestamp metadata only
-    pub _pad: u8,              // 1 byte: protocol padding
+    pub client_order_id: u64,
+    pub account_id: u32,
+    pub instrument_id: u16,
+    pub side: u8,
+    pub price: u32,
+    pub quantity: u32,
+    pub timestamp: u64,
+    pub _pad: u8,
 }
 
 impl OrderPacket {
@@ -63,9 +59,6 @@ impl OrderPacket {
 }
 
 impl OrderPool {
-    /// Low-level allocation helper retained for pool tests/tools that do not
-    /// participate in the exchange admission path. Such records have sequence
-    /// zero and are not exchange-sequenced commands.
     #[inline(always)]
     pub fn allocate_from_packet(
         &mut self,
@@ -75,7 +68,6 @@ impl OrderPool {
         self.allocate_from_packet_with_sequence(packet, exchange_order_id, SequenceNumber(0))
     }
 
-    /// Allocate an accepted order with exchange identity and canonical sequence.
     #[inline(always)]
     pub fn allocate_from_packet_with_sequence(
         &mut self,
@@ -83,18 +75,75 @@ impl OrderPool {
         exchange_order_id: ExchangeOrderId,
         sequence_number: SequenceNumber,
     ) -> u32 {
+        let command = OrderCommand::from_packet(packet).expect("legacy packet must decode");
+        self.allocate_from_command(&command, exchange_order_id, sequence_number)
+    }
+
+    /// Allocate a command after admission. The pool representation is an
+    /// internal command envelope; protocol-specific numeric side values do not
+    /// leak into matching semantics.
+    #[inline(always)]
+    pub fn allocate_from_command(
+        &mut self,
+        command: &OrderCommand,
+        exchange_order_id: ExchangeOrderId,
+        sequence_number: SequenceNumber,
+    ) -> u32 {
         let idx = self.allocate();
         let order = &mut self.data[idx as usize];
+        *order = crate::pool::Order::default();
         order.exchange_order_id = exchange_order_id.0;
-        order.client_order_id = packet.client_order_id;
-        order.account_id = packet.account_id;
-        order.instrument_id = packet.instrument_id;
-        order.side = packet.side;
-        order.price = packet.price;
-        order.quantity = packet.quantity;
-        order.remaining = packet.quantity;
         order.sequence_number = sequence_number.0;
-        order.client_timestamp = packet.timestamp;
+
+        match *command {
+            OrderCommand::New(NewOrder {
+                client_order_id,
+                account_id,
+                instrument_id,
+                side,
+                price,
+                quantity,
+                client_timestamp,
+            }) => {
+                order.command_kind = CommandKind::New as u8;
+                order.client_order_id = client_order_id.0;
+                order.account_id = account_id;
+                order.instrument_id = instrument_id;
+                order.side = side.wire_value();
+                order.price = price;
+                order.quantity = quantity;
+                order.remaining = quantity;
+                order.client_timestamp = client_timestamp;
+            }
+            OrderCommand::Cancel(cancel) => {
+                order.command_kind = CommandKind::Cancel as u8;
+                order.client_order_id = cancel.client_order_id.0;
+                order.account_id = cancel.account_id;
+                order.instrument_id = cancel.instrument_id;
+            }
+            OrderCommand::Replace(ReplaceOrder {
+                account_id,
+                instrument_id,
+                target_client_order_id,
+                new_client_order_id,
+                side,
+                price,
+                quantity,
+                client_timestamp,
+            }) => {
+                order.command_kind = CommandKind::Replace as u8;
+                order.client_order_id = new_client_order_id.0;
+                order.account_id = account_id;
+                order.instrument_id = instrument_id;
+                order.side = side.wire_value();
+                order.price = price;
+                order.quantity = quantity;
+                order.remaining = quantity;
+                order.client_timestamp = client_timestamp;
+                order.replace_target_client_order_id = target_client_order_id.0;
+            }
+        }
+
         order.next = 0;
         order.prev = 0;
         idx
