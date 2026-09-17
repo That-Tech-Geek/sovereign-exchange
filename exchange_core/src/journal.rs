@@ -16,7 +16,6 @@ pub enum JournalError {
     InvalidRecord(&'static str),
     ChecksumMismatch { expected: u32, actual: u32 },
     SequenceRegression { previous: u64, next: u64 },
-    SequenceOverflow,
     UnsupportedVersion(u16),
     PayloadTooLarge(usize),
 }
@@ -33,7 +32,6 @@ impl std::fmt::Display for JournalError {
             Self::InvalidRecord(m) => write!(f, "invalid journal record: {m}"),
             Self::ChecksumMismatch { expected, actual } => write!(f, "journal checksum mismatch: expected {expected:#x}, got {actual:#x}"),
             Self::SequenceRegression { previous, next } => write!(f, "journal sequence regression: previous={previous}, next={next}"),
-            Self::SequenceOverflow => write!(f, "journal sequence overflow"),
             Self::UnsupportedVersion(v) => write!(f, "unsupported journal version {v}"),
             Self::PayloadTooLarge(n) => write!(f, "journal payload too large: {n} bytes"),
         }
@@ -97,7 +95,6 @@ impl EventJournal {
         let sequence = event_sequence(event);
         if let Some(previous) = self.next_sequence {
             if sequence < previous { return Err(JournalError::SequenceRegression { previous, next: sequence }); }
-            if sequence == u64::MAX { return Err(JournalError::SequenceOverflow); }
         }
         let payload = encode_event(event);
         if payload.len() > u32::MAX as usize { return Err(JournalError::PayloadTooLarge(payload.len())); }
