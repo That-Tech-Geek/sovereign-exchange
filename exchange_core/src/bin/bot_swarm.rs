@@ -101,7 +101,7 @@ impl TradingBot {
         OrderPacket {
             order_id: (self.account_id as u64) * 1_000_000 + self.orders_sent,
             account_id: self.account_id,
-            ticker_id: self.preferred_ticker,
+            instrument_id: self.preferred_ticker,
             side,
             price,
             quantity,
@@ -160,11 +160,13 @@ fn main() {
         mm_count,
         seed_start.elapsed()
     );
-    println!(
-        "Bids levels: {}, Asks levels: {}",
-        engine.book.bids.len(),
-        engine.book.asks.len()
-    );
+    if let Some(book) = engine.book(0) {
+        println!(
+            "Instrument 0 levels: bids={}, asks={}",
+            book.bids.len(),
+            book.asks.len()
+        );
+    }
 
     let execution_start = Instant::now();
     let mut total_trades = 0usize;
