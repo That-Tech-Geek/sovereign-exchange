@@ -6,6 +6,7 @@ mod order;
 mod book;
 mod engine;
 mod instrument;
+mod sequence;
 mod ring;
 mod scavenger;
 mod ticker;
