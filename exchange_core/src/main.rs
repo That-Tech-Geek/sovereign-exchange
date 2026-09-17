@@ -53,12 +53,12 @@ fn main() {
     println!("📦 Pre-allocating OrderPool slab (5,000,000 slots)...");
     let init_start = Instant::now();
     let mut engine = engine::MatchingEngine::new();
-    let ring = ring::RingBuffer::new();
+    let queue = ring::OrderQueue::new();
     println!("✅ OrderPool initialized in {:.2?}", init_start.elapsed());
     println!("✅ Matching engine initialized with {} independent books", engine.books.len());
     println!("✅ Registered instruments: {} / {} capacity", engine.instruments.len(), constants::MAX_INSTRUMENTS);
 
-    let health_ctx = health::HealthContext::new(is_running.clone(), metrics.clone(), ring.clone(), constants::HTTP_PORT);
+    let health_ctx = health::HealthContext::new(is_running.clone(), metrics.clone(), queue.clone(), constants::HTTP_PORT);
     health::start_health_server(health_ctx, constants::HTTP_PORT);
 
     println!("🔥 Running warmup benchmark (10,000 synthetic sovereign orders)...");
@@ -89,11 +89,11 @@ fn main() {
     engine.process_command(cancel_accepted.pool_index);
     println!("✅ Typed cancellation command verified (Client Order ID: {}, Exchange Order ID: {})", cancel_test_id, accepted.exchange_order_id.0);
 
-    println!("⚡ Matching engine active and listening on ring buffer...");
+    println!("⚡ Matching engine active and listening on order queue...");
     let mut idle_spins = 0u64;
     loop {
         let mut had_work = false;
-        while let Some(idx) = ring.try_recv() {
+        while let Some(idx) = queue.try_recv() {
             had_work = true;
             idle_spins = 0;
             let t0 = Instant::now();
