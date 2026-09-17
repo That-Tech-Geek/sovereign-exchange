@@ -3,16 +3,12 @@ use crate::pool::OrderPool;
 use crate::sequence::SequenceNumber;
 
 /// Client-supplied identifier for an order.
-///
-/// Uniqueness is enforced per `(instrument_id, account_id, client_order_id)`
-/// while an order is active. The instrument scope is provided by the owning
-/// `OrderBook`; it is not duplicated in the key stored by that book.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct ClientOrderId(pub u64);
 
 /// Exchange-assigned identifier for an accepted order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct ExchangeOrderId(pub u64);
 
@@ -24,10 +20,6 @@ pub struct OrderKey {
 }
 
 /// Binary order packet (32 bytes total).
-///
-/// The packet is a transport representation only. Its legacy numeric `side`
-/// field is decoded once by `OrderCommand::from_packet`; matching logic uses
-/// typed commands and never interprets `side == 2` as cancellation.
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrderPacket {
@@ -58,7 +50,5 @@ impl OrderPacket {
     }
 }
 
-// Kept as the packet compatibility entry point for existing callers. The
-// production admission path uses OrderPool::allocate_from_packet directly.
 #[allow(dead_code)]
 fn _order_pool_api_anchor(_: &mut OrderPool, _: &OrderCommand, _: SequenceNumber) {}
