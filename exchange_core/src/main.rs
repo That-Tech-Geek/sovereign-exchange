@@ -81,7 +81,7 @@ fn main() {
         let side = (i % 2) as u8;
         let price = 10000 + ((i * 7) % 50) as u32;
         let packet = order::OrderPacket {
-            order_id: (i + 1) as u64,
+            client_order_id: (i + 1) as u64,
             account_id: (100 + (i % 50)) as u32,
             instrument_id: (i % 24) as u16,
             side,
@@ -115,7 +115,7 @@ fn main() {
 
     let cancel_test_id = 888_888u64;
     let cancel_packet = order::OrderPacket {
-        order_id: cancel_test_id,
+        client_order_id: cancel_test_id,
         account_id: 999,
         instrument_id: 0,
         side: 0,
