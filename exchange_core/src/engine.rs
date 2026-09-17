@@ -62,15 +62,11 @@ impl MatchingEngine {
         let instrument_id = self.pool.data[idx as usize].instrument_id;
         let side = self.pool.data[idx as usize].side;
 
-        // Invalid instrument IDs are rejected before touching any book.
         if !self.instruments.contains(instrument_id) {
             self.pool.deallocate(idx);
             return 0;
         }
 
-        // Preserve the existing binary cancel command for this PR. Cancellation
-        // is explicitly routed through the packet's instrument ID, so it cannot
-        // accidentally search or mutate another instrument's book.
         if side == 2 {
             let target_order_id = self.pool.data[idx as usize].order_id;
             self.cancel_order(instrument_id, target_order_id);
@@ -78,7 +74,6 @@ impl MatchingEngine {
             return 0;
         }
 
-        // Only normal buy/sell commands are accepted by this layer.
         if side > 1 {
             self.pool.deallocate(idx);
             return 0;
@@ -104,7 +99,6 @@ impl MatchingEngine {
         *trade_count
     }
 
-    /// Cancel an order only in the book identified by `instrument_id`.
     #[inline(always)]
     pub fn cancel_order(&mut self, instrument_id: u16, order_id: u64) -> bool {
         let Some(book) = self.books.get_mut(instrument_id as usize) else {
@@ -174,8 +168,6 @@ impl MatchingEngine {
                 book.remove_order(ask_idx, pool);
             }
 
-            // PR 5 removes this semantic limit. For PR 1, keep the existing
-            // fixed output buffer behavior but never allow cross-instrument state.
             if *trade_count >= MAX_TRADES_PER_MATCH {
                 break;
             }
@@ -239,5 +231,11 @@ impl MatchingEngine {
                 break;
             }
         }
+    }
+}
+
+impl Default for MatchingEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }
