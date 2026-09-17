@@ -4,16 +4,16 @@ use crate::constants::{MAX_ORDERS, NULL_ORDER};
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub order_id: u64,      // Exchange/client order ID; identity semantics are refined in PR 2.
-    pub account_id: u32,    // Trader/account identifier.
+    pub order_id: u64, // Exchange/client order ID; identity semantics are refined in PR 2.
+    pub account_id: u32, // Trader/account identifier.
     pub instrument_id: u16, // Index into the instrument registry.
-    pub side: u8,           // 0 = Buy, 1 = Sell, 2 = Cancel command.
-    pub price: u32,         // Scaled integer price.
-    pub quantity: u32,      // Original quantity.
-    pub remaining: u32,     // Quantity left to fill.
-    pub next: u32,          // Next order in price-level FIFO linked list.
-    pub prev: u32,          // Previous order in price-level FIFO linked list.
-    pub timestamp: u64,     // Client timestamp; not used for cross-instrument routing.
+    pub side: u8, // 0 = Buy, 1 = Sell, 2 = Cancel command.
+    pub price: u32, // Scaled integer price.
+    pub quantity: u32, // Original quantity.
+    pub remaining: u32, // Quantity left to fill.
+    pub next: u32, // Next order in price-level FIFO linked list.
+    pub prev: u32, // Previous order in price-level FIFO linked list.
+    pub timestamp: u64, // Client timestamp; not used for cross-instrument routing.
 }
 
 pub struct OrderPool {
