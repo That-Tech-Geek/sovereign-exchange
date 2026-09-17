@@ -24,8 +24,8 @@ impl OrderPacket {
 
     /// Serialize into 32 raw bytes (for testing & network egress).
     #[inline(always)]
-    pub fn to_bytes(&self) -> [u8; 32] {
-        unsafe { std::mem::transmute_copy(self) }
+    pub fn to_bytes(self) -> [u8; 32] {
+        unsafe { std::mem::transmute_copy(&self) }
     }
 }
 
