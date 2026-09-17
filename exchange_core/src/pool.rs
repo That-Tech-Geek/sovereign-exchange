@@ -4,22 +4,22 @@ use crate::constants::{MAX_ORDERS, NULL_ORDER};
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub order_id:   u64,       // Client-generated ID
-    pub account_id: u32,       // Trader/bot identifier
-    pub ticker_id:  u16,       // Index into Ticker registry
-    pub side:       u8,        // 0 = Buy, 1 = Sell
-    pub price:      u32,       // Scaled integer (e.g., 10050 = $100.50)
-    pub quantity:   u32,       // Original quantity
-    pub remaining:  u32,       // Quantity left to fill
-    pub next:       u32,       // Index of next order in price level (linked list)
-    pub prev:       u32,       // Index of previous order in price level
-    pub timestamp:  u64,       // Arrival time (nanoseconds)
+    pub order_id: u64,   // Client-generated ID
+    pub account_id: u32, // Trader/bot identifier
+    pub ticker_id: u16,  // Index into Ticker registry
+    pub side: u8,        // 0 = Buy, 1 = Sell
+    pub price: u32,      // Scaled integer (e.g., 10050 = $100.50)
+    pub quantity: u32,   // Original quantity
+    pub remaining: u32,  // Quantity left to fill
+    pub next: u32,       // Index of next order in price level (linked list)
+    pub prev: u32,       // Index of previous order in price level
+    pub timestamp: u64,  // Arrival time (nanoseconds)
 }
 
 pub struct OrderPool {
-    pub data: Vec<Order>,      // Contiguous memory, index = order ID
-    pub free_head: u32,        // Head of free list (linked list of available slots)
-    pub allocated_count: u32,  // For debugging & telemetry
+    pub data: Vec<Order>,     // Contiguous memory, index = order ID
+    pub free_head: u32,       // Head of free list (linked list of available slots)
+    pub allocated_count: u32, // For debugging & telemetry
 }
 
 impl OrderPool {
@@ -28,15 +28,19 @@ impl OrderPool {
     pub fn new() -> Self {
         let mut data = Vec::with_capacity(MAX_ORDERS);
         data.resize(MAX_ORDERS, Order::default());
-        
+
         // Slot 0 is reserved as NULL_ORDER sentinel
         // Build free list: 1 -> 2 -> ... -> MAX_ORDERS-1
         for i in 1..MAX_ORDERS - 1 {
             data[i].next = (i + 1) as u32;
         }
         data[MAX_ORDERS - 1].next = u32::MAX; // Terminator
-        
-        Self { data, free_head: 1, allocated_count: 0 }
+
+        Self {
+            data,
+            free_head: 1,
+            allocated_count: 0,
+        }
     }
 
     /// Allocate a new order slot. Returns the index.

@@ -1,6 +1,6 @@
-use crate::pool::OrderPool;
 use crate::book::OrderBook;
 use crate::constants::MAX_TRADES_PER_MATCH;
+use crate::pool::OrderPool;
 
 /// A trade event emitted by the matching engine.
 #[repr(C)]
@@ -68,7 +68,7 @@ impl MatchingEngine {
     /// Cancel and remove an order by its `order_id` from the CLOB.
     /// Locates the order, unlinks it from the price level FIFO list,
     /// decrements level volume and order count, and returns the slot to the OrderPool free list.
-    /// 
+    ///
     /// O(1) operation designed not to block the matching hot path.
     /// Returns `true` if the order was found and cancelled, `false` if not found or already filled.
     #[inline(always)]
@@ -86,31 +86,31 @@ impl MatchingEngine {
     #[inline(always)]
     fn match_buy(&mut self, incoming_idx: u32) {
         let incoming_price = self.pool.data[incoming_idx as usize].price;
-        
+
         while self.pool.data[incoming_idx as usize].remaining > 0 {
             // Get the best ask price
             let best_ask = match self.book.best_ask() {
                 Some(p) => p,
                 None => break, // No asks available
             };
-            
+
             // Check if the buy can cross the spread
             if incoming_price < best_ask {
                 break; // Cannot match, price too low
             }
-            
+
             // Get the head order at the best ask level (FIFO priority)
             let ask_idx = match self.book.best_ask_head() {
                 Some(idx) => idx,
                 None => break,
             };
-            
+
             // Copy data before mutation to respect borrow checker
             let ask_price = self.pool.data[ask_idx as usize].price;
             let ask_remaining = self.pool.data[ask_idx as usize].remaining;
             let incoming_remaining = self.pool.data[incoming_idx as usize].remaining;
             let fill_qty = std::cmp::min(incoming_remaining, ask_remaining);
-            
+
             // Update quantities zero-alloc in place
             self.pool.data[incoming_idx as usize].remaining -= fill_qty;
             self.pool.data[ask_idx as usize].remaining -= fill_qty;
@@ -123,7 +123,7 @@ impl MatchingEngine {
                     level.volume = 0;
                 }
             }
-            
+
             // Record the trade into the pre-allocated buffer
             self.trades[self.trade_count] = Trade {
                 buyer: self.pool.data[incoming_idx as usize].account_id,
@@ -137,12 +137,12 @@ impl MatchingEngine {
                     .as_nanos() as u64,
             };
             self.trade_count += 1;
-            
+
             // If the resting ask order is fully filled, remove it from the book and free it
             if self.pool.data[ask_idx as usize].remaining == 0 {
                 self.book.remove_order(ask_idx, &mut self.pool);
             }
-            
+
             // Safety bound: if stack buffer is full, prevent overflow
             if self.trade_count >= MAX_TRADES_PER_MATCH {
                 break;
@@ -154,31 +154,31 @@ impl MatchingEngine {
     #[inline(always)]
     fn match_sell(&mut self, incoming_idx: u32) {
         let incoming_price = self.pool.data[incoming_idx as usize].price;
-        
+
         while self.pool.data[incoming_idx as usize].remaining > 0 {
             // Get the best bid price
             let best_bid = match self.book.best_bid() {
                 Some(p) => p,
                 None => break, // No bids available
             };
-            
+
             // Check if the sell can cross the spread
             if incoming_price > best_bid {
                 break; // Cannot match, price too high
             }
-            
+
             // Get the head order at the best bid level (FIFO priority)
             let bid_idx = match self.book.best_bid_head() {
                 Some(idx) => idx,
                 None => break,
             };
-            
+
             // Copy data before mutation
             let bid_price = self.pool.data[bid_idx as usize].price;
             let bid_remaining = self.pool.data[bid_idx as usize].remaining;
             let incoming_remaining = self.pool.data[incoming_idx as usize].remaining;
             let fill_qty = std::cmp::min(incoming_remaining, bid_remaining);
-            
+
             // Update quantities
             self.pool.data[incoming_idx as usize].remaining -= fill_qty;
             self.pool.data[bid_idx as usize].remaining -= fill_qty;
@@ -191,7 +191,7 @@ impl MatchingEngine {
                     level.volume = 0;
                 }
             }
-            
+
             // Record the trade into the pre-allocated buffer
             self.trades[self.trade_count] = Trade {
                 buyer: self.pool.data[bid_idx as usize].account_id,
@@ -205,12 +205,12 @@ impl MatchingEngine {
                     .as_nanos() as u64,
             };
             self.trade_count += 1;
-            
+
             // If the resting bid order is fully filled, remove it from the book and free it
             if self.pool.data[bid_idx as usize].remaining == 0 {
                 self.book.remove_order(bid_idx, &mut self.pool);
             }
-            
+
             // Safety bound: if stack buffer is full, prevent overflow
             if self.trade_count >= MAX_TRADES_PER_MATCH {
                 break;

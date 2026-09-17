@@ -24,8 +24,10 @@ impl PerformanceMetrics {
     #[inline(always)]
     pub fn record_order_latency(&self, duration_nanos: u64, trades: usize) {
         self.orders_processed.fetch_add(1, Ordering::Relaxed);
-        self.trades_generated.fetch_add(trades as u64, Ordering::Relaxed);
-        self.cumulative_service_nanos.fetch_add(duration_nanos, Ordering::Relaxed);
+        self.trades_generated
+            .fetch_add(trades as u64, Ordering::Relaxed);
+        self.cumulative_service_nanos
+            .fetch_add(duration_nanos, Ordering::Relaxed);
 
         // Update min
         let mut current_min = self.min_latency_nanos.load(Ordering::Relaxed);
@@ -67,7 +69,11 @@ impl PerformanceMetrics {
 
     pub fn min_latency_nanos(&self) -> u64 {
         let val = self.min_latency_nanos.load(Ordering::Relaxed);
-        if val == u64::MAX { 0 } else { val }
+        if val == u64::MAX {
+            0
+        } else {
+            val
+        }
     }
 
     pub fn max_latency_nanos(&self) -> u64 {
@@ -80,4 +86,3 @@ impl Default for PerformanceMetrics {
         Self::new()
     }
 }
-

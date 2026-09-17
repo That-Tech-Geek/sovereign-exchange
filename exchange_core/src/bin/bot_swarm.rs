@@ -74,27 +74,43 @@ impl TradingBot {
                 // Quotes both sides around fair price
                 let is_buy = (seq_id % 2) == 0;
                 let spread = 5 + ((seq_id * 3) % 15) as u32;
-                let prc = if is_buy { fair_price.saturating_sub(spread) } else { fair_price + spread };
+                let prc = if is_buy {
+                    fair_price.saturating_sub(spread)
+                } else {
+                    fair_price + spread
+                };
                 (if is_buy { 0 } else { 1 }, prc, 100)
             }
             BotArchetype::MomentumTaker => {
                 // Crosses spread aggressively to fill
                 let is_buy = ((seq_id + self.bot_id as u64) % 3) != 0;
                 let aggressive_offset = 2 + (seq_id % 5) as u32;
-                let prc = if is_buy { fair_price + aggressive_offset } else { fair_price.saturating_sub(aggressive_offset) };
+                let prc = if is_buy {
+                    fair_price + aggressive_offset
+                } else {
+                    fair_price.saturating_sub(aggressive_offset)
+                };
                 (if is_buy { 0 } else { 1 }, prc, 50)
             }
             BotArchetype::SovereignArbitrage => {
                 // Cross-country spread pegging
                 let is_buy = (self.bot_id % 2) == 0;
-                let prc = if is_buy { fair_price - 2 } else { fair_price + 2 };
+                let prc = if is_buy {
+                    fair_price - 2
+                } else {
+                    fair_price + 2
+                };
                 (if is_buy { 0 } else { 1 }, prc, 75)
             }
             BotArchetype::NoiseTrader => {
                 // Random small lots
                 let is_buy = (seq_id % 2) == 1;
                 let noise_offset = ((seq_id * 7) % 25) as u32;
-                let prc = if is_buy { fair_price.saturating_sub(noise_offset) } else { fair_price + noise_offset };
+                let prc = if is_buy {
+                    fair_price.saturating_sub(noise_offset)
+                } else {
+                    fair_price + noise_offset
+                };
                 let qty = 10 + ((seq_id * 13) % 40) as u32;
                 (if is_buy { 0 } else { 1 }, prc, qty)
             }
@@ -146,10 +162,22 @@ fn main() {
     }
 
     println!("✅ Swarm Composition:");
-    println!("   ├── 🏦 Market Makers:        {:>6} bots (50%) [Passive Resting Depth]", mm_count);
-    println!("   ├── ⚡ Momentum Takers:      {:>6} bots (25%) [Aggressive Crossers]", taker_count);
-    println!("   ├── 🌐 Sovereign Arbitrage:  {:>6} bots (15%) [Cross-Country Pegs]", arb_count);
-    println!("   └── 🎲 Noise Traders:        {:>6} bots (10%) [Stochastic Retail]", noise_count);
+    println!(
+        "   ├── 🏦 Market Makers:        {:>6} bots (50%) [Passive Resting Depth]",
+        mm_count
+    );
+    println!(
+        "   ├── ⚡ Momentum Takers:      {:>6} bots (25%) [Aggressive Crossers]",
+        taker_count
+    );
+    println!(
+        "   ├── 🌐 Sovereign Arbitrage:  {:>6} bots (15%) [Cross-Country Pegs]",
+        arb_count
+    );
+    println!(
+        "   └── 🎲 Noise Traders:        {:>6} bots (10%) [Stochastic Retail]",
+        noise_count
+    );
     println!("   Account Range: ID #1,000 to #{}", 1_000 + num_bots);
 
     println!("\n🚀 Initializing Matching Engine & Zero-Alloc Pool...");
@@ -168,8 +196,16 @@ fn main() {
         let idx = engine.pool.allocate_from_packet(&pkt);
         engine.process_order(idx);
     }
-    println!("✅ Pre-seeded {} limit orders in {:.2?}", mm_count, seed_start.elapsed());
-    println!("   Bids levels: {}, Asks levels: {}", engine.book.bids.len(), engine.book.asks.len());
+    println!(
+        "✅ Pre-seeded {} limit orders in {:.2?}",
+        mm_count,
+        seed_start.elapsed()
+    );
+    println!(
+        "   Bids levels: {}, Asks levels: {}",
+        engine.book.bids.len(),
+        engine.book.asks.len()
+    );
 
     // Execute active high-frequency bot swarm burst
     println!("\n🔥 Launching 10k Bot Swarm Execution Wave (50,000 orders)...");
@@ -204,17 +240,33 @@ fn main() {
     println!("   ├── Total Orders Ingested:   {}", total_orders);
     println!("   ├── Total Trades Executed:   {}", total_trades);
     println!("   ├── Elapsed Wall Time:       {:.2?}", elapsed);
-    println!("   ├── Swarm Ingestion Rate:    {} orders/sec", orders_per_sec);
+    println!(
+        "   ├── Swarm Ingestion Rate:    {} orders/sec",
+        orders_per_sec
+    );
     println!("   ├── Mean E[S] Service Time:  {:.3} µs", avg_latency);
     println!("   ├── Minimum Single Latency:  {} ns", min_latency);
-    println!("   ├── Maximum Tail Latency:    {} ns ({:.2} µs)", max_latency, max_latency as f64 / 1000.0);
-    println!("   └── Pool Slots Allocated:    {} / 5,000,000 (Zero Heap Alloc)", engine.pool.allocated_count);
+    println!(
+        "   ├── Maximum Tail Latency:    {} ns ({:.2} µs)",
+        max_latency,
+        max_latency as f64 / 1000.0
+    );
+    println!(
+        "   └── Pool Slots Allocated:    {} / 5,000,000 (Zero Heap Alloc)",
+        engine.pool.allocated_count
+    );
 
     if avg_latency < 5.0 {
         println!("\n✅ PASS: Latency target of < 5.0 µs achieved with 10k Bot Swarm!");
     } else {
-        println!("\n⚠️ Target: Latency exceeded 5.0 µs ({:.3} µs)", avg_latency);
+        println!(
+            "\n⚠️ Target: Latency exceeded 5.0 µs ({:.3} µs)",
+            avg_latency
+        );
     }
 
-    println!("\n💡 Single-code execution complete. All {} bots successfully coordinated.", num_bots);
+    println!(
+        "\n💡 Single-code execution complete. All {} bots successfully coordinated.",
+        num_bots
+    );
 }

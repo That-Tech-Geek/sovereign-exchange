@@ -5,14 +5,14 @@ use crate::pool::OrderPool;
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrderPacket {
-    pub order_id:   u64,       // 8 bytes: Client order sequence
-    pub account_id: u32,       // 4 bytes: Bot / account ID
-    pub ticker_id:  u16,       // 2 bytes: Country index (0=USA, 1=GERMANY, etc.)
-    pub side:       u8,        // 1 byte: 0 = Buy, 1 = Sell
-    pub price:      u32,       // 4 bytes: Scaled integer (e.g. 10050 = $100.50)
-    pub quantity:   u32,       // 4 bytes: Total quantity
-    pub timestamp:  u64,       // 8 bytes: Client timestamp in unix nanos
-    pub _pad:       u8,        // 1 byte: Network alignment padding (32 bytes total)
+    pub order_id: u64,   // 8 bytes: Client order sequence
+    pub account_id: u32, // 4 bytes: Bot / account ID
+    pub ticker_id: u16,  // 2 bytes: Country index (0=USA, 1=GERMANY, etc.)
+    pub side: u8,        // 1 byte: 0 = Buy, 1 = Sell
+    pub price: u32,      // 4 bytes: Scaled integer (e.g. 10050 = $100.50)
+    pub quantity: u32,   // 4 bytes: Total quantity
+    pub timestamp: u64,  // 8 bytes: Client timestamp in unix nanos
+    pub _pad: u8,        // 1 byte: Network alignment padding (32 bytes total)
 }
 
 impl OrderPacket {

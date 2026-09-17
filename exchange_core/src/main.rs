@@ -1,15 +1,15 @@
 #![allow(dead_code, unused_imports)]
 
-mod constants;
-mod pool;
-mod order;
 mod book;
+mod constants;
 mod engine;
+mod health;
+mod metrics;
+mod order;
+mod pool;
 mod ring;
 mod scavenger;
 mod ticker;
-mod metrics;
-mod health;
 
 use core_affinity::set_for_current;
 use crossbeam_channel::unbounded;
@@ -23,7 +23,7 @@ fn main() {
     println!("🚀 Starting Exchange Core Engine - Country Shares Trading");
     println!("   Target: Sub-5µs latency | 200k+ orders/sec | 5M Order Pool");
     println!("============================================================");
-    
+
     // --- 1. PIN MATCHING THREAD TO CORE 0 ---
     if let Some(core_ids) = core_affinity::get_core_ids() {
         if !core_ids.is_empty() {
@@ -109,9 +109,16 @@ fn main() {
 
     let warmup_duration = warmup_start.elapsed();
     let micros = warmup_duration.as_micros() as f64 / 10_000.0;
-    println!("✅ Warmup complete: 10,000 orders matched in {:.2?} (~{:.2} µs/order)", warmup_duration, micros);
+    println!(
+        "✅ Warmup complete: 10,000 orders matched in {:.2?} (~{:.2} µs/order)",
+        warmup_duration, micros
+    );
     println!("   Trades generated: {}", warmup_trades);
-    println!("   Bids levels: {}, Asks levels: {}", engine.book.bids.len(), engine.book.asks.len());
+    println!(
+        "   Bids levels: {}, Asks levels: {}",
+        engine.book.bids.len(),
+        engine.book.asks.len()
+    );
 
     // --- 7. VERIFY ORDER CANCELLATION ---
     let cancel_test_id = 888_888u64;
@@ -128,8 +135,14 @@ fn main() {
     let test_idx = engine.pool.allocate_from_packet(&cancel_packet);
     engine.process_order(test_idx);
     let cancel_success = engine.cancel_order(cancel_test_id);
-    assert!(cancel_success, "Cancellation must succeed for resting order");
-    println!("✅ Order cancellation verified on live engine (Order ID: {})", cancel_test_id);
+    assert!(
+        cancel_success,
+        "Cancellation must succeed for resting order"
+    );
+    println!(
+        "✅ Order cancellation verified on live engine (Order ID: {})",
+        cancel_test_id
+    );
 
     // --- 8. THE HOT LOOP ---
     println!("⚡ Matching engine active and listening on ring buffer...");
@@ -149,7 +162,7 @@ fn main() {
             let trade_count = engine.process_order(idx);
             let elapsed_nanos = t0.elapsed().as_nanos() as u64;
             metrics.record_order_latency(elapsed_nanos, trade_count);
-            
+
             // Forward trades to the background scavenger
             if trade_count > 0 {
                 for i in 0..trade_count {
@@ -157,7 +170,7 @@ fn main() {
                 }
             }
         }
-        
+
         if !had_work {
             idle_spins += 1;
             if idle_spins > 10_000 {

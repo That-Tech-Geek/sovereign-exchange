@@ -1,11 +1,11 @@
-use crossbeam_channel::{bounded, Sender, Receiver};
 use crate::constants::RING_BUFFER_SIZE;
+use crossbeam_channel::{bounded, Receiver, Sender};
 
 /// LMAX Disruptor-style ring buffer using crossbeam's lock-free bounded channel.
 /// Serves as the communication highway between network ingress threads and the single matching core.
 #[derive(Clone)]
 pub struct RingBuffer {
-    pub tx: Sender<u32>,  // Order indices (already allocated in the OrderPool)
+    pub tx: Sender<u32>, // Order indices (already allocated in the OrderPool)
     pub rx: Receiver<u32>,
 }
 

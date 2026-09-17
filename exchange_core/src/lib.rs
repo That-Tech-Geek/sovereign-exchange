@@ -1,23 +1,22 @@
 #![allow(dead_code, unused_imports)]
 
-pub mod constants;
-pub mod pool;
-pub mod order;
 pub mod book;
+pub mod constants;
 pub mod engine;
+pub mod health;
+pub mod metrics;
+pub mod order;
+pub mod pool;
 pub mod ring;
 pub mod scavenger;
 pub mod ticker;
-pub mod metrics;
-pub mod health;
 
+pub use book::{OrderBook, PriceLevel};
 pub use constants::*;
-pub use pool::{Order, OrderPool};
-pub use order::OrderPacket;
-pub use book::{PriceLevel, OrderBook};
 pub use engine::{MatchingEngine, Trade};
+pub use health::{generate_health_json, start_health_server, HealthContext};
+pub use metrics::PerformanceMetrics;
+pub use order::OrderPacket;
+pub use pool::{Order, OrderPool};
 pub use ring::RingBuffer;
 pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
-pub use metrics::PerformanceMetrics;
-pub use health::{HealthContext, generate_health_json, start_health_server};
-

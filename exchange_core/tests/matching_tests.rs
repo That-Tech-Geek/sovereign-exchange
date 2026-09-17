@@ -1,6 +1,6 @@
-use exchange_core::pool::OrderPool;
-use exchange_core::order::OrderPacket;
 use exchange_core::engine::MatchingEngine;
+use exchange_core::order::OrderPacket;
+use exchange_core::pool::OrderPool;
 
 #[test]
 fn test_order_packet_size_and_parsing() {
@@ -311,13 +311,13 @@ fn test_order_cancellation_packet_protocol() {
 
 #[test]
 fn test_health_check_payload_and_server() {
-    use std::sync::atomic::AtomicBool;
-    use std::sync::Arc;
-    use exchange_core::health::{HealthContext, generate_health_json, start_health_server};
+    use exchange_core::health::{generate_health_json, start_health_server, HealthContext};
     use exchange_core::metrics::PerformanceMetrics;
     use exchange_core::ring::RingBuffer;
     use std::io::{Read, Write};
     use std::net::TcpStream;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     let is_running = Arc::new(AtomicBool::new(true));
     let metrics = Arc::new(PerformanceMetrics::new());
@@ -350,4 +350,3 @@ fn test_health_check_payload_and_server() {
         }
     }
 }
-

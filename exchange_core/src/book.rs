@@ -1,19 +1,24 @@
-use std::collections::{BTreeMap, HashMap};
-use crate::pool::OrderPool;
 use crate::constants::NULL_ORDER;
+use crate::pool::OrderPool;
+use std::collections::{BTreeMap, HashMap};
 
 /// Represents a single price level with a linked list of orders for strict FIFO priority.
 #[derive(Clone, Debug, Default)]
 pub struct PriceLevel {
-    pub head: u32,      // Index of first order in the level (oldest)
-    pub tail: u32,      // Index of last order in the level (newest)
-    pub volume: u32,    // Total quantity at this price
+    pub head: u32,   // Index of first order in the level (oldest)
+    pub tail: u32,   // Index of last order in the level (newest)
+    pub volume: u32, // Total quantity at this price
     pub order_count: u32,
 }
 
 impl PriceLevel {
     pub fn new() -> Self {
-        Self { head: NULL_ORDER, tail: NULL_ORDER, volume: 0, order_count: 0 }
+        Self {
+            head: NULL_ORDER,
+            tail: NULL_ORDER,
+            volume: 0,
+            order_count: 0,
+        }
     }
 }
 
@@ -41,10 +46,14 @@ impl OrderBook {
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let order_id = pool.data[idx as usize].order_id;
-        let map = if side == 0 { &mut self.bids } else { &mut self.asks };
-        
+        let map = if side == 0 {
+            &mut self.bids
+        } else {
+            &mut self.asks
+        };
+
         let level = map.entry(price).or_insert_with(PriceLevel::new);
-        
+
         // Append to tail of linked list (FIFO priority)
         if level.tail == NULL_ORDER {
             level.head = idx;
@@ -78,8 +87,12 @@ impl OrderBook {
             self.order_map.remove(&order_id);
         }
 
-        let map = if side == 0 { &mut self.bids } else { &mut self.asks };
-        
+        let map = if side == 0 {
+            &mut self.bids
+        } else {
+            &mut self.asks
+        };
+
         if let Some(level) = map.get_mut(&price) {
             // Unlink from linked list
             if prev != NULL_ORDER {
@@ -87,13 +100,13 @@ impl OrderBook {
             } else {
                 level.head = next; // Removing head
             }
-            
+
             if next != NULL_ORDER {
                 pool.data[next as usize].prev = prev;
             } else {
                 level.tail = prev; // Removing tail
             }
-            
+
             if level.volume >= remaining {
                 level.volume -= remaining;
             } else {
@@ -103,26 +116,26 @@ impl OrderBook {
             if level.order_count > 0 {
                 level.order_count -= 1;
             }
-            
+
             let should_remove = level.head == NULL_ORDER || level.volume == 0;
             if should_remove {
                 map.remove(&price);
             }
-            
+
             // Return order to free list
             pool.deallocate(idx);
         }
     }
 
     /// Remove an order by its client-provided `order_id`.
-    /// 
+    ///
     /// Efficient non-blocking cancellation process:
     /// 1. Direct O(1) index lookup via order_map.
     /// 2. If map missed (fallback), scans active bids/asks linked lists.
     /// 3. Safely unlinks from the price level's linked list.
     /// 4. Updates price level's volume and order count (prunes level if empty).
     /// 5. Deallocates the order slot back to the OrderPool free list.
-    /// 
+    ///
     /// Returns `true` if the order was found and removed, `false` otherwise.
     #[inline(always)]
     pub fn remove_order_by_id(&mut self, order_id: u64, pool: &mut OrderPool) -> bool {
