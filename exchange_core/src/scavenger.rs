@@ -1,7 +1,7 @@
-use crate::constants::{FIRESTORE_SYNC_MS, GITHUB_CHUNK_SIZE, SNAPSHOT_INTERVAL_SECS};
-use crate::engine::Trade;
 use crossbeam_channel::Receiver;
 use std::time::{Duration, Instant};
+use crate::engine::Trade;
+use crate::constants::{FIRESTORE_SYNC_MS, SNAPSHOT_INTERVAL_SECS, GITHUB_CHUNK_SIZE};
 
 /// The scavenger runs on a separate worker thread (Core 1).
 /// It batches executed trades, simulates periodic Firestore sync, and compresses WAL records for GitHub.
@@ -28,7 +28,7 @@ pub fn run(trade_rx: Receiver<Trade>) {
                 wal_buffer.extend_from_slice(&trade.buyer.to_le_bytes());
                 wal_buffer.extend_from_slice(&trade.seller.to_le_bytes());
                 wal_buffer.extend_from_slice(&trade.timestamp.to_le_bytes());
-
+                
                 // Flush if batch threshold is reached
                 if batch.len() >= 1000 {
                     flush_to_firestore(&batch);
@@ -55,25 +55,16 @@ pub fn run(trade_rx: Receiver<Trade>) {
 
         // Periodic complete state snapshot
         if last_snapshot.elapsed() >= Duration::from_secs(SNAPSHOT_INTERVAL_SECS) {
-            eprintln!(
-                "[Scavenger] Snapshot generated at timestamp {:?}",
-                Instant::now()
-            );
+            eprintln!("[Scavenger] Snapshot generated at timestamp {:?}", Instant::now());
             last_snapshot = Instant::now();
         }
 
         // WAL buffer chunk rotation for GitHub / cold storage commit
         if wal_buffer.len() as u64 > GITHUB_CHUNK_SIZE {
-            eprintln!(
-                "[Scavenger] Compressing WAL chunk (size {} bytes)...",
-                wal_buffer.len()
-            );
+            eprintln!("[Scavenger] Compressing WAL chunk (size {} bytes)...", wal_buffer.len());
             compressed_bytes_written += GITHUB_CHUNK_SIZE;
             wal_buffer.clear();
-            eprintln!(
-                "[Scavenger] Cumulative WAL archived: {} MB",
-                compressed_bytes_written / (1024 * 1024)
-            );
+            eprintln!("[Scavenger] Cumulative WAL archived: {} MB", compressed_bytes_written / (1024 * 1024));
         }
     }
 }
@@ -81,8 +72,5 @@ pub fn run(trade_rx: Receiver<Trade>) {
 /// Flush an aggregated batch of trades to persistent storage.
 #[inline(always)]
 fn flush_to_firestore(trades: &[Trade]) {
-    eprintln!(
-        "[Scavenger] Flushed batch of {} trades to Firestore buffer",
-        trades.len()
-    );
+    eprintln!("[Scavenger] Flushed batch of {} trades to Firestore buffer", trades.len());
 }

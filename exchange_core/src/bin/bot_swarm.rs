@@ -1,13 +1,14 @@
 //! 10,000 Bot Swarm Simulator for Exchange Core.
 //!
-//! A single unified binary to spin up, configure, and execute all 10,000 algorithmic bots.
+//! The simulator uses the production admission path so every synthetic order
+//! receives a distinct exchange order ID while retaining its client ID.
 
 use std::env;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
 use exchange_core::engine::MatchingEngine;
+use exchange_core::instrument::spot_instrument_id;
 use exchange_core::metrics::PerformanceMetrics;
 use exchange_core::order::OrderPacket;
 use exchange_core::ring::RingBuffer;
@@ -42,7 +43,9 @@ impl TradingBot {
         } else {
             BotArchetype::NoiseTrader
         };
+
         let preferred_ticker = (bot_id as usize % TICKERS.len()) as u16;
+
         Self {
             bot_id,
             account_id,
@@ -58,7 +61,7 @@ impl TradingBot {
         self.orders_sent += 1;
         let (side, price, quantity) = match self.archetype {
             BotArchetype::MarketMaker => {
-                let is_buy = seq_id.is_multiple_of(2);
+                let is_buy = (seq_id % 2) == 0;
                 let spread = 5 + ((seq_id * 3) % 15) as u32;
                 let prc = if is_buy {
                     fair_price.saturating_sub(spread)
@@ -68,7 +71,7 @@ impl TradingBot {
                 (if is_buy { 0 } else { 1 }, prc, 100)
             }
             BotArchetype::MomentumTaker => {
-                let is_buy = !(seq_id + self.bot_id as u64).is_multiple_of(3);
+                let is_buy = ((seq_id + self.bot_id as u64) % 3) != 0;
                 let aggressive_offset = 2 + (seq_id % 5) as u32;
                 let prc = if is_buy {
                     fair_price + aggressive_offset
@@ -78,16 +81,12 @@ impl TradingBot {
                 (if is_buy { 0 } else { 1 }, prc, 50)
             }
             BotArchetype::SovereignArbitrage => {
-                let is_buy = self.bot_id.is_multiple_of(2);
-                let prc = if is_buy {
-                    fair_price - 2
-                } else {
-                    fair_price + 2
-                };
+                let is_buy = (self.bot_id % 2) == 0;
+                let prc = if is_buy { fair_price - 2 } else { fair_price + 2 };
                 (if is_buy { 0 } else { 1 }, prc, 75)
             }
             BotArchetype::NoiseTrader => {
-                let is_buy = !seq_id.is_multiple_of(2);
+                let is_buy = (seq_id % 2) == 1;
                 let noise_offset = ((seq_id * 7) % 25) as u32;
                 let prc = if is_buy {
                     fair_price.saturating_sub(noise_offset)
@@ -98,10 +97,11 @@ impl TradingBot {
                 (if is_buy { 0 } else { 1 }, prc, qty)
             }
         };
+
         OrderPacket {
-            order_id: (self.account_id as u64) * 1_000_000 + self.orders_sent,
+            client_order_id: (self.account_id as u64) * 1_000_000 + self.orders_sent,
             account_id: self.account_id,
-            instrument_id: self.preferred_ticker,
+            instrument_id: spot_instrument_id(self.preferred_ticker),
             side,
             price,
             quantity,
@@ -121,14 +121,16 @@ fn main() {
 
     println!("============================================================");
     println!("🤖 EXCHANGE CORE - 10K BOT SWARM CONTROLLER");
-    println!("   Single-Code Master Spin-up for Algorithmic Trading Bots");
+    println!("   Client IDs + exchange-assigned IDs exercised through admission");
     println!("============================================================");
 
+    println!("\n📦 Initializing {} algorithmic bots...", num_bots);
     let mut bots: Vec<TradingBot> = Vec::with_capacity(num_bots);
     let mut mm_count = 0;
     let mut taker_count = 0;
     let mut arb_count = 0;
     let mut noise_count = 0;
+
     for i in 0..num_bots {
         let bot = TradingBot::new(i as u32, num_bots);
         match bot.archetype {
@@ -139,47 +141,46 @@ fn main() {
         }
         bots.push(bot);
     }
-    println!(
-        "Market Makers: {mm_count}, Momentum Takers: {taker_count}, Arbitrageurs: {arb_count}, Noise: {noise_count}"
-    );
 
+    println!("✅ Swarm Composition:");
+    println!("   ├── Market Makers:        {:>6} bots (50%)", mm_count);
+    println!("   ├── Momentum Takers:      {:>6} bots (25%)", taker_count);
+    println!("   ├── Sovereign Arbitrage:  {:>6} bots (15%)", arb_count);
+    println!("   └── Noise Traders:        {:>6} bots (10%)", noise_count);
+
+    println!("\n🚀 Initializing Matching Engine & Zero-Alloc Pool...");
     let mut engine = MatchingEngine::new();
     let metrics = Arc::new(PerformanceMetrics::new());
     let _ring = RingBuffer::new();
-    let _running = Arc::new(AtomicBool::new(true));
 
+    println!("⚡ Seeding initial sovereign orderbooks across all 12 instruments...");
     let seed_start = Instant::now();
-    for (i, bot) in bots.iter_mut().enumerate().take(mm_count) {
+    for i in 0..mm_count {
+        let bot = &mut bots[i];
         let ticker = &TICKERS[bot.preferred_ticker as usize];
-        let pkt = bot.generate_order(i as u64, ticker.base_price);
-        let idx = engine.pool.allocate_from_packet(&pkt);
-        engine.process_order(idx);
+        let pkt = bot.generate_order(i as u64, ticker.base_price_cents);
+        let accepted = engine.accept_order(&pkt).expect("seed order must be accepted");
+        engine.process_order(accepted.pool_index);
     }
-    println!(
-        "Pre-seeded {} limit orders in {:.2?}",
-        mm_count,
-        seed_start.elapsed()
-    );
-    if let Some(book) = engine.book(0) {
-        println!(
-            "Instrument 0 levels: bids={}, asks={}",
-            book.bids.len(),
-            book.asks.len()
-        );
-    }
+    println!("✅ Pre-seeded {} limit orders in {:.2?}", mm_count, seed_start.elapsed());
 
+    println!("\n🔥 Launching 10k Bot Swarm Execution Wave (50,000 orders)...");
     let execution_start = Instant::now();
     let mut total_trades = 0usize;
     let mut total_orders = 0usize;
+
     for wave in 0..5 {
         for bot in bots.iter_mut() {
             let ticker = &TICKERS[bot.preferred_ticker as usize];
             let seq = (wave * num_bots + bot.bot_id as usize) as u64;
-            let pkt = bot.generate_order(seq, ticker.base_price);
+            let pkt = bot.generate_order(seq, ticker.base_price_cents);
+
             let t0 = Instant::now();
-            let idx = engine.pool.allocate_from_packet(&pkt);
-            let trades = engine.process_order(idx);
-            metrics.record_order_latency(t0.elapsed().as_nanos() as u64, trades);
+            let accepted = engine.accept_order(&pkt).expect("swarm order must be accepted");
+            let trades = engine.process_order(accepted.pool_index);
+            let nanos = t0.elapsed().as_nanos() as u64;
+            metrics.record_order_latency(nanos, trades);
+
             total_orders += 1;
             total_trades += trades;
         }
@@ -190,6 +191,22 @@ fn main() {
     let avg_latency = metrics.average_latency_micros();
     let min_latency = metrics.min_latency_nanos();
     let max_latency = metrics.max_latency_nanos();
-    println!("Orders: {total_orders}, Trades: {total_trades}, Rate: {orders_per_sec}/s");
-    println!("Mean latency: {avg_latency:.3} µs, Min: {min_latency} ns, Max: {max_latency} ns");
+
+    println!("\n🏁 10K BOT SWARM EXECUTION RESULTS:");
+    println!("   ├── Total Orders Ingested:   {}", total_orders);
+    println!("   ├── Total Trades Executed:   {}", total_trades);
+    println!("   ├── Elapsed Wall Time:       {:.2?}", elapsed);
+    println!("   ├── Swarm Ingestion Rate:    {} orders/sec", orders_per_sec);
+    println!("   ├── Mean E[S] Service Time:  {:.3} µs", avg_latency);
+    println!("   ├── Minimum Single Latency:  {} ns", min_latency);
+    println!("   ├── Maximum Tail Latency:    {} ns ({:.2} µs)", max_latency, max_latency as f64 / 1000.0);
+    println!("   └── Pool Slots Allocated:    {} / 5,000,000", engine.pool.allocated_count);
+
+    if avg_latency < 5.0 {
+        println!("\n✅ PASS: Latency target of < 5.0 µs achieved with 10k Bot Swarm!");
+    } else {
+        println!("\n⚠️ Target: Latency exceeded 5.0 µs ({:.3} µs)", avg_latency);
+    }
+
+    println!("\n💡 Single-code execution complete. All {} bots successfully coordinated.", num_bots);
 }

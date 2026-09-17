@@ -121,10 +121,7 @@ pub fn start_health_server(context: HealthContext, port: u16) -> thread::JoinHan
             let bind_addr = format!("0.0.0.0:{}", port);
             let listener = match TcpListener::bind(&bind_addr) {
                 Ok(l) => {
-                    eprintln!(
-                        "✅ Health check HTTP server listening on http://0.0.0.0:{}",
-                        port
-                    );
+                    eprintln!("✅ Health check HTTP server listening on http://0.0.0.0:{}", port);
                     l
                 }
                 Err(e) => {
@@ -135,17 +132,11 @@ pub fn start_health_server(context: HealthContext, port: u16) -> thread::JoinHan
                     );
                     match TcpListener::bind(format!("0.0.0.0:{}", alt_port)) {
                         Ok(l) => {
-                            eprintln!(
-                                "✅ Health check HTTP server listening on http://0.0.0.0:{}",
-                                alt_port
-                            );
+                            eprintln!("✅ Health check HTTP server listening on http://0.0.0.0:{}", alt_port);
                             l
                         }
                         Err(e2) => {
-                            eprintln!(
-                                "❌ Failed to bind fallback health HTTP port {}: {}",
-                                alt_port, e2
-                            );
+                            eprintln!("❌ Failed to bind fallback health HTTP port {}: {}", alt_port, e2);
                             return;
                         }
                     }

@@ -1,54 +1,57 @@
+use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use crate::constants::RING_BUFFER_SIZE;
-use crossbeam_channel::{bounded, Receiver, Sender};
 
-/// LMAX Disruptor-style ring buffer using crossbeam's lock-free bounded channel.
-/// Serves as the communication highway between network ingress threads and the single matching core.
+/// Bounded non-blocking order ingress queue.
+///
+/// This is intentionally not called an LMAX Disruptor: it is a Crossbeam
+/// bounded channel carrying already-allocated order-pool indices.
 #[derive(Clone)]
-pub struct RingBuffer {
-    pub tx: Sender<u32>, // Order indices (already allocated in the OrderPool)
+pub struct OrderQueue {
+    pub tx: Sender<u32>,
     pub rx: Receiver<u32>,
 }
 
-impl RingBuffer {
+impl OrderQueue {
     pub fn new() -> Self {
-        let (tx, rx) = bounded(RING_BUFFER_SIZE);
+        Self::with_capacity(RING_BUFFER_SIZE)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let (tx, rx) = bounded(capacity);
         Self { tx, rx }
     }
 
-    /// Send an order index into the ring buffer (non-blocking).
-    /// Returns Ok(()) if sent, Err if the ring buffer is at capacity.
     #[inline(always)]
-    pub fn send(&self, idx: u32) -> Result<(), crossbeam_channel::TrySendError<u32>> {
+    pub fn try_send(&self, idx: u32) -> Result<(), TrySendError<u32>> {
         self.tx.try_send(idx)
     }
 
-    /// Try to pop an order index without blocking the matching thread.
-    /// Returns Some(idx) if available, None if empty.
     #[inline(always)]
     pub fn try_recv(&self) -> Option<u32> {
         self.rx.try_recv().ok()
     }
 
-    /// Blocking receive (used by utility/test consumers).
     pub fn recv_blocking(&self) -> u32 {
-        self.rx.recv().expect("RingBuffer sender closed")
+        self.rx.recv().expect("OrderQueue sender closed")
     }
 
-    /// Returns the approximate number of pending orders in the ring buffer.
     #[inline(always)]
     pub fn len(&self) -> usize {
         self.rx.len()
     }
 
-    /// Returns true if empty.
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.rx.is_empty()
     }
 }
 
-impl Default for RingBuffer {
+impl Default for OrderQueue {
     fn default() -> Self {
         Self::new()
     }
 }
+
+/// Compatibility alias for existing health/test code. New code should use
+/// `OrderQueue` because this is a bounded channel, not a literal ring buffer.
+pub type RingBuffer = OrderQueue;
