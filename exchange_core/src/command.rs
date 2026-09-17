@@ -1,11 +1,6 @@
 use crate::order::{ClientOrderId, ExchangeOrderId, OrderPacket};
 use crate::sequence::SequenceNumber;
 
-/// Explicit command type at the exchange boundary.
-///
-/// The wire packet remains a compact transport representation. Its legacy
-/// `side` field is decoded into this enum exactly once at ingress so matching
-/// logic never uses numeric side values as command semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderCommand {
     New(NewOrder),
@@ -67,6 +62,7 @@ pub enum CommandRejectReason {
     UnknownOrder,
     ExchangeOrderIdExhausted,
     SequenceNumberExhausted,
+    OrderPoolExhausted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,8 +111,6 @@ pub enum ExchangeEvent {
 }
 
 impl OrderCommand {
-    /// Decode the existing 32-byte transport packet into an explicit command.
-    /// Numeric wire values are confined to this protocol boundary.
     pub fn from_packet(packet: &OrderPacket) -> Result<Self, CommandRejectReason> {
         match packet.side {
             0 => Ok(Self::New(NewOrder {
