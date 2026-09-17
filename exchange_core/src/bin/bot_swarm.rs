@@ -58,7 +58,7 @@ impl TradingBot {
         self.orders_sent += 1;
         let (side, price, quantity) = match self.archetype {
             BotArchetype::MarketMaker => {
-                let is_buy = (seq_id % 2) == 0;
+                let is_buy = seq_id.is_multiple_of(2);
                 let spread = 5 + ((seq_id * 3) % 15) as u32;
                 let prc = if is_buy {
                     fair_price.saturating_sub(spread)
@@ -68,7 +68,7 @@ impl TradingBot {
                 (if is_buy { 0 } else { 1 }, prc, 100)
             }
             BotArchetype::MomentumTaker => {
-                let is_buy = ((seq_id + self.bot_id as u64) % 3) != 0;
+                let is_buy = !(seq_id + self.bot_id as u64).is_multiple_of(3);
                 let aggressive_offset = 2 + (seq_id % 5) as u32;
                 let prc = if is_buy {
                     fair_price + aggressive_offset
@@ -78,7 +78,7 @@ impl TradingBot {
                 (if is_buy { 0 } else { 1 }, prc, 50)
             }
             BotArchetype::SovereignArbitrage => {
-                let is_buy = (self.bot_id % 2) == 0;
+                let is_buy = self.bot_id.is_multiple_of(2);
                 let prc = if is_buy {
                     fair_price - 2
                 } else {
@@ -87,7 +87,7 @@ impl TradingBot {
                 (if is_buy { 0 } else { 1 }, prc, 75)
             }
             BotArchetype::NoiseTrader => {
-                let is_buy = (seq_id % 2) == 1;
+                let is_buy = !seq_id.is_multiple_of(2);
                 let noise_offset = ((seq_id * 7) % 25) as u32;
                 let prc = if is_buy {
                     fair_price.saturating_sub(noise_offset)
@@ -149,8 +149,7 @@ fn main() {
     let _running = Arc::new(AtomicBool::new(true));
 
     let seed_start = Instant::now();
-    for i in 0..mm_count {
-        let bot = &mut bots[i];
+    for (i, bot) in bots.iter_mut().enumerate().take(mm_count) {
         let ticker = &TICKERS[bot.preferred_ticker as usize];
         let pkt = bot.generate_order(i as u64, ticker.base_price);
         let idx = engine.pool.allocate_from_packet(&pkt);
