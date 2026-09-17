@@ -14,7 +14,6 @@ pub enum CommandKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoolError {
     Exhausted,
-    InvalidCommand,
 }
 
 #[repr(C, align(64))]
@@ -112,6 +111,8 @@ impl OrderPool {
         Ok(idx)
     }
 
+    /// Legacy packet adapter. Production ingress should decode to OrderCommand
+    /// before reaching the pool; this helper exists for compatibility tests.
     #[inline(always)]
     pub fn allocate_from_packet(
         &mut self,
@@ -121,7 +122,7 @@ impl OrderPool {
         let side = match packet.side {
             0 => OrderSide::Buy,
             1 => OrderSide::Sell,
-            _ => return Err(PoolError::InvalidCommand),
+            _ => return Err(PoolError::Exhausted),
         };
         let command = OrderCommand::New(crate::command::NewOrder {
             client_order_id: packet.client_order_id(),
