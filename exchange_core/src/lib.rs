@@ -14,9 +14,9 @@ pub mod health;
 
 pub use constants::*;
 pub use pool::{Order, OrderPool};
-pub use order::OrderPacket;
+pub use order::{ClientOrderId, ExchangeOrderId, OrderKey, OrderPacket};
 pub use book::{PriceLevel, OrderBook};
-pub use engine::{MatchingEngine, Trade};
+pub use engine::{AcceptedOrder, MatchingEngine, OrderAcceptError, Trade};
 pub use instrument::{
     future_instrument_id, spot_instrument_id, Instrument, InstrumentRegistry,
     InstrumentStatus, MarketType, SovereignDefinition, SOVEREIGNS,
