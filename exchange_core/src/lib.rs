@@ -15,17 +15,17 @@ pub mod metrics;
 pub mod health;
 
 pub use constants::*;
-pub use pool::{CommandKind, Order, OrderPool};
+pub use pool::{CommandKind, Order, OrderPool, PoolError};
 pub use order::{ClientOrderId, ExchangeOrderId, OrderKey, OrderPacket};
 pub use command::{CancelOrder, CommandRejectReason, ExchangeEvent, NewOrder, OrderCommand, OrderSide, ReplaceOrder};
 pub use book::{PriceLevel, OrderBook};
-pub use engine::{AcceptedOrder, MatchingEngine, OrderAcceptError, Trade};
+pub use engine::{AcceptedOrder, IngressError, MatchingEngine, OrderAcceptError, Trade};
 pub use instrument::{
     future_instrument_id, spot_instrument_id, Instrument, InstrumentRegistry,
     InstrumentStatus, MarketType, SovereignDefinition, SOVEREIGNS,
 };
 pub use sequence::SequenceNumber;
-pub use ring::RingBuffer;
+pub use ring::{OrderQueue, RingBuffer};
 pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
 pub use metrics::PerformanceMetrics;
 pub use health::{HealthContext, generate_health_json, start_health_server};
