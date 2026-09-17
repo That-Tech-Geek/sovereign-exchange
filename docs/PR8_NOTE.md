@@ -1,0 +1,1 @@
+PR8 is intentionally a replay-verifier stage. Full book reconstruction is gated on replay-complete order events in PR9; this branch must not be presented as crash-recovery complete.
