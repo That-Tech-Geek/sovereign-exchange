@@ -2,8 +2,9 @@ use crate::pool::OrderPool;
 
 /// Client-supplied identifier for an order.
 ///
-/// It is not authoritative exchange identity. Uniqueness is enforced per
-/// `(instrument_id, account_id, client_order_id)` while the order is active.
+/// Uniqueness is enforced per `(instrument_id, account_id, client_order_id)`
+/// while an order is active. The instrument scope is provided by the owning
+/// `OrderBook`; it is not duplicated in the key stored by that book.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct ClientOrderId(pub u64);
@@ -17,11 +18,9 @@ pub struct ClientOrderId(pub u64);
 #[repr(transparent)]
 pub struct ExchangeOrderId(pub u64);
 
-/// Active-order lookup key. The instrument is deliberately part of the key so
-/// the identity contract remains compatible with instrument-scoped matching.
+/// Active-order lookup key within one instrument book.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct OrderKey {
-    pub instrument_id: u16,
     pub account_id: u32,
     pub client_order_id: ClientOrderId,
 }
