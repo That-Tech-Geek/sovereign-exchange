@@ -13,12 +13,14 @@ pub struct OrderQueue {
 
 impl OrderQueue {
     pub fn new() -> Self {
-        let (tx, rx) = bounded(RING_BUFFER_SIZE);
+        Self::with_capacity(RING_BUFFER_SIZE)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let (tx, rx) = bounded(capacity);
         Self { tx, rx }
     }
 
-    /// Non-blocking enqueue. A Full/Disconnected error returns ownership of
-    /// the order index to the caller so the pool slot can be released.
     #[inline(always)]
     pub fn try_send(&self, idx: u32) -> Result<(), TrySendError<u32>> {
         self.tx.try_send(idx)
