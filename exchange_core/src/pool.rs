@@ -14,7 +14,8 @@ pub struct Order {
     pub remaining: u32,         // Quantity left to fill.
     pub next: u32,              // Next order in price-level FIFO linked list.
     pub prev: u32,              // Previous order in price-level FIFO linked list.
-    pub timestamp: u64,         // Client timestamp metadata.
+    pub sequence_number: u64,   // Canonical exchange admission sequence.
+    pub client_timestamp: u64,  // Client timestamp metadata; never used for priority.
 }
 
 pub struct OrderPool {
