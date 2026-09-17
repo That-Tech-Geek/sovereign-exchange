@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main", "master" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,24 +13,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install stable Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        
+
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: exchange_core
-          
+
+      - name: Check formatting
+        run: cd exchange_core && cargo fmt -- --check
+
       - name: Build Debug
         run: cd exchange_core && cargo build --verbose
-        
+
       - name: Run Unit Tests
         run: cd exchange_core && cargo test --verbose
-        
+
+      - name: Run Clippy
+        run: cd exchange_core && cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Build Release (Optimized & Stripped)
         run: cd exchange_core && cargo build --release
-        
+
       - name: Verify Binary Output
         run: |
           ls -lh exchange_core/target/release/exchange_core
