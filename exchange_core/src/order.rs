@@ -1,4 +1,5 @@
 use crate::pool::OrderPool;
+use crate::sequence::SequenceNumber;
 
 /// Client-supplied identifier for an order.
 ///
@@ -29,8 +30,8 @@ pub struct OrderKey {
 ///
 /// `client_order_id` occupies the exact same 64-bit wire position previously
 /// named `order_id`. Renaming the Rust field does not change the binary layout.
-/// The exchange order ID is assigned after admission and is never supplied by
-/// the client.
+/// The exchange order ID and canonical sequence are assigned after admission
+/// and are never supplied by the client.
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrderPacket {
@@ -40,7 +41,7 @@ pub struct OrderPacket {
     pub side: u8,             // 1 byte: 0 = Buy, 1 = Sell, 2 = Cancel
     pub price: u32,            // 4 bytes: scaled integer price
     pub quantity: u32,         // 4 bytes: total quantity
-    pub timestamp: u64,        // 8 bytes: client timestamp metadata
+    pub timestamp: u64,        // 8 bytes: client timestamp metadata only
     pub _pad: u8,              // 1 byte: protocol padding
 }
 
@@ -62,12 +63,13 @@ impl OrderPacket {
 }
 
 impl OrderPool {
-    /// Allocate an accepted order with an exchange-assigned identity.
+    /// Allocate an accepted order with exchange identity and canonical sequence.
     #[inline(always)]
     pub fn allocate_from_packet(
         &mut self,
         packet: &OrderPacket,
         exchange_order_id: ExchangeOrderId,
+        sequence_number: SequenceNumber,
     ) -> u32 {
         let idx = self.allocate();
         let order = &mut self.data[idx as usize];
@@ -79,7 +81,8 @@ impl OrderPool {
         order.price = packet.price;
         order.quantity = packet.quantity;
         order.remaining = packet.quantity;
-        order.timestamp = packet.timestamp;
+        order.sequence_number = sequence_number.0;
+        order.client_timestamp = packet.timestamp;
         order.next = 0;
         order.prev = 0;
         idx
