@@ -1,11 +1,10 @@
 //! 10,000 Bot Swarm Simulator for Exchange Core.
 //!
-//! A single unified binary to spin up, configure, and execute all 10,000 algorithmic bots
-//!
+//! A single unified binary to spin up, configure, and execute all 10,000 algorithmic bots.
 
 use std::env;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Instant;
 
 use exchange_core::engine::MatchingEngine;
@@ -61,24 +60,40 @@ impl TradingBot {
             BotArchetype::MarketMaker => {
                 let is_buy = (seq_id % 2) == 0;
                 let spread = 5 + ((seq_id * 3) % 15) as u32;
-                let prc = if is_buy { fair_price.saturating_sub(spread) } else { fair_price + spread };
+                let prc = if is_buy {
+                    fair_price.saturating_sub(spread)
+                } else {
+                    fair_price + spread
+                };
                 (if is_buy { 0 } else { 1 }, prc, 100)
             }
             BotArchetype::MomentumTaker => {
                 let is_buy = ((seq_id + self.bot_id as u64) % 3) != 0;
                 let aggressive_offset = 2 + (seq_id % 5) as u32;
-                let prc = if is_buy { fair_price + aggressive_offset } else { fair_price.saturating_sub(aggressive_offset) };
+                let prc = if is_buy {
+                    fair_price + aggressive_offset
+                } else {
+                    fair_price.saturating_sub(aggressive_offset)
+                };
                 (if is_buy { 0 } else { 1 }, prc, 50)
             }
             BotArchetype::SovereignArbitrage => {
                 let is_buy = (self.bot_id % 2) == 0;
-                let prc = if is_buy { fair_price - 2 } else { fair_price + 2 };
+                let prc = if is_buy {
+                    fair_price - 2
+                } else {
+                    fair_price + 2
+                };
                 (if is_buy { 0 } else { 1 }, prc, 75)
             }
             BotArchetype::NoiseTrader => {
                 let is_buy = (seq_id % 2) == 1;
                 let noise_offset = ((seq_id * 7) % 25) as u32;
-                let prc = if is_buy { fair_price.saturating_sub(noise_offset) } else { fair_price + noise_offset };
+                let prc = if is_buy {
+                    fair_price.saturating_sub(noise_offset)
+                } else {
+                    fair_price + noise_offset
+                };
                 let qty = 10 + ((seq_id * 13) % 40) as u32;
                 (if is_buy { 0 } else { 1 }, prc, qty)
             }
@@ -124,7 +139,9 @@ fn main() {
         }
         bots.push(bot);
     }
-    println!("Market Makers: {mm_count}, Momentum Takers: {taker_count}, Arbitrageurs: {arb_count}, Noise: {noise_count}");
+    println!(
+        "Market Makers: {mm_count}, Momentum Takers: {taker_count}, Arbitrageurs: {arb_count}, Noise: {noise_count}"
+    );
 
     let mut engine = MatchingEngine::new();
     let metrics = Arc::new(PerformanceMetrics::new());
@@ -139,8 +156,16 @@ fn main() {
         let idx = engine.pool.allocate_from_packet(&pkt);
         engine.process_order(idx);
     }
-    println!("Pre-seeded {} limit orders in {:.2?}", mm_count, seed_start.elapsed());
-    println!("Bids levels: {}, Asks levels: {}", engine.book.bids.len(), engine.book.asks.len());
+    println!(
+        "Pre-seeded {} limit orders in {:.2?}",
+        mm_count,
+        seed_start.elapsed()
+    );
+    println!(
+        "Bids levels: {}, Asks levels: {}",
+        engine.book.bids.len(),
+        engine.book.asks.len()
+    );
 
     let execution_start = Instant::now();
     let mut total_trades = 0usize;
