@@ -1,19 +1,20 @@
 use crate::constants::{MAX_ORDERS, NULL_ORDER};
 
-/// Cache-line aligned to prevent false sharing between CPU cores.
+/// Cache-line aligned order state stored in the exchange pool.
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub order_id: u64,       // Exchange/client order ID; identity semantics are refined in PR 2.
-    pub account_id: u32,     // Trader/account identifier.
-    pub instrument_id: u16,  // Index into the instrument registry.
-    pub side: u8,            // 0 = Buy, 1 = Sell, 2 = Cancel command.
-    pub price: u32,          // Scaled integer price.
-    pub quantity: u32,       // Original quantity.
-    pub remaining: u32,      // Quantity left to fill.
-    pub next: u32,           // Next order in price-level FIFO linked list.
-    pub prev: u32,           // Previous order in price-level FIFO linked list.
-    pub timestamp: u64,      // Client timestamp; not used for cross-instrument routing.
+    pub exchange_order_id: u64, // Exchange-assigned immutable identity.
+    pub client_order_id: u64,   // Client-supplied identity.
+    pub account_id: u32,        // Trader/account identifier.
+    pub instrument_id: u16,     // Instrument registry ID.
+    pub side: u8,               // 0 = Buy, 1 = Sell, 2 = Cancel command.
+    pub price: u32,             // Scaled integer price.
+    pub quantity: u32,          // Original quantity.
+    pub remaining: u32,         // Quantity left to fill.
+    pub next: u32,              // Next order in price-level FIFO linked list.
+    pub prev: u32,              // Previous order in price-level FIFO linked list.
+    pub timestamp: u64,         // Client timestamp metadata.
 }
 
 pub struct OrderPool {
@@ -23,7 +24,6 @@ pub struct OrderPool {
 }
 
 impl OrderPool {
-    /// Creates a pool with MAX_ORDERS pre-allocated slots.
     pub fn new() -> Self {
         let mut data = Vec::with_capacity(MAX_ORDERS);
         data.resize(MAX_ORDERS, Order::default());
