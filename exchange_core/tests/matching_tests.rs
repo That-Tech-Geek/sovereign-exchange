@@ -13,7 +13,7 @@ fn packet(
     timestamp: u64,
 ) -> OrderPacket {
     OrderPacket {
-        order_id: client_order_id,
+        client_order_id,
         account_id,
         instrument_id,
         side,
