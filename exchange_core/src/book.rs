@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::constants::NULL_ORDER;
+use crate::order::{ClientOrderId, OrderKey};
 use crate::pool::OrderPool;
 
 /// A single price level with strict FIFO order priority.
@@ -25,13 +26,13 @@ impl PriceLevel {
 
 /// Central Limit Order Book for exactly one instrument.
 ///
-/// The matcher owns one OrderBook per instrument. There is deliberately no
-/// instrument identifier inside the book itself: the containing exchange
-/// determines which book is authoritative for a given instrument ID.
+/// Active client identity is keyed by `(account_id, client_order_id)` inside
+/// this instrument. The exchange-assigned ID lives on the pool order itself
+/// and is never used as a client lookup key.
 pub struct OrderBook {
     pub bids: BTreeMap<u32, PriceLevel>,
     pub asks: BTreeMap<u32, PriceLevel>,
-    pub order_map: HashMap<u64, u32>,
+    pub order_map: HashMap<OrderKey, u32>,
 }
 
 impl OrderBook {
@@ -44,15 +45,33 @@ impl OrderBook {
     }
 
     #[inline(always)]
+    pub fn contains_order(&self, account_id: u32, client_order_id: ClientOrderId) -> bool {
+        self.order_map.contains_key(&OrderKey {
+            instrument_id: 0,
+            account_id,
+            client_order_id,
+        }) || self
+            .order_map
+            .keys()
+            .any(|key| key.account_id == account_id && key.client_order_id == client_order_id)
+    }
+
+    #[inline(always)]
     pub fn insert_limit(&mut self, idx: u32, pool: &mut OrderPool) {
         let side = pool.data[idx as usize].side;
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
-        let order_id = pool.data[idx as usize].order_id;
+        let account_id = pool.data[idx as usize].account_id;
+        let client_order_id = ClientOrderId(pool.data[idx as usize].client_order_id);
+        let instrument_id = pool.data[idx as usize].instrument_id;
+        let key = OrderKey {
+            instrument_id,
+            account_id,
+            client_order_id,
+        };
         let map = if side == 0 { &mut self.bids } else { &mut self.asks };
 
         let level = map.entry(price).or_insert_with(PriceLevel::new);
-
         if level.tail == NULL_ORDER {
             level.head = idx;
         } else {
@@ -62,10 +81,7 @@ impl OrderBook {
         level.tail = idx;
         level.volume += remaining;
         level.order_count += 1;
-
-        if order_id != 0 {
-            self.order_map.insert(order_id, idx);
-        }
+        self.order_map.insert(key, idx);
     }
 
     #[inline(always)]
@@ -75,12 +91,13 @@ impl OrderBook {
         let remaining = pool.data[idx as usize].remaining;
         let prev = pool.data[idx as usize].prev;
         let next = pool.data[idx as usize].next;
-        let order_id = pool.data[idx as usize].order_id;
+        let key = OrderKey {
+            instrument_id: pool.data[idx as usize].instrument_id,
+            account_id: pool.data[idx as usize].account_id,
+            client_order_id: ClientOrderId(pool.data[idx as usize].client_order_id),
+        };
 
-        if order_id != 0 {
-            self.order_map.remove(&order_id);
-        }
-
+        self.order_map.remove(&key);
         let map = if side == 0 { &mut self.bids } else { &mut self.asks };
 
         if let Some(level) = map.get_mut(&price) {
@@ -89,36 +106,46 @@ impl OrderBook {
             } else {
                 level.head = next;
             }
-
             if next != NULL_ORDER {
                 pool.data[next as usize].prev = prev;
             } else {
                 level.tail = prev;
             }
-
             level.volume = level.volume.saturating_sub(remaining);
             level.order_count = level.order_count.saturating_sub(1);
-
             if level.head == NULL_ORDER || level.order_count == 0 {
                 map.remove(&price);
             }
-
             pool.deallocate(idx);
         }
     }
 
     #[inline(always)]
-    pub fn remove_order_by_id(&mut self, order_id: u64, pool: &mut OrderPool) -> bool {
-        let Some(&idx) = self.order_map.get(&order_id) else {
-            return false;
-        };
+    pub fn remove_order_by_id(
+        &mut self,
+        account_id: u32,
+        client_order_id: ClientOrderId,
+        pool: &mut OrderPool,
+    ) -> bool {
+        let key = self
+            .order_map
+            .keys()
+            .find(|key| key.account_id == account_id && key.client_order_id == client_order_id)
+            .copied();
+        let Some(key) = key else { return false };
+        let Some(idx) = self.order_map.get(&key).copied() else { return false };
         self.remove_order(idx, pool);
         true
     }
 
     #[inline(always)]
-    pub fn cancel_order(&mut self, order_id: u64, pool: &mut OrderPool) -> bool {
-        self.remove_order_by_id(order_id, pool)
+    pub fn cancel_order(
+        &mut self,
+        account_id: u32,
+        client_order_id: ClientOrderId,
+        pool: &mut OrderPool,
+    ) -> bool {
+        self.remove_order_by_id(account_id, client_order_id, pool)
     }
 
     #[inline(always)]
