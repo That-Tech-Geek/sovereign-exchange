@@ -284,12 +284,12 @@ fn test_health_check_payload_and_server() {
     let context = HealthContext::new(is_running.clone(), metrics.clone(), ring.clone(), 18088);
     let json = generate_health_json(&context);
 
-    assert!(json.contains(r#"\"status\":\"HEALTHY\""#));
-    assert!(json.contains(r#"\"engine_running\":true"#));
-    assert!(json.contains(r#"\"ring_buffer_depth\":0"#));
-    assert!(json.contains(r#"\"orders_processed\":1"#));
-    assert!(json.contains(r#"\"trades_generated\":2"#));
-    assert!(json.contains(r#"\"avg_latency_micros\":1.5000"#));
+    assert!(json.contains(r#""status":"HEALTHY""#));
+    assert!(json.contains(r#""engine_running":true"#));
+    assert!(json.contains(r#""ring_buffer_depth":0"#));
+    assert!(json.contains(r#""orders_processed":1"#));
+    assert!(json.contains(r#""trades_generated":2"#));
+    assert!(json.contains(r#""avg_latency_micros":1.5000"#));
 
     let _handle = start_health_server(context, 18088);
     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -300,7 +300,7 @@ fn test_health_check_payload_and_server() {
         if let Ok(n) = stream.read(&mut resp) {
             let response = String::from_utf8_lossy(&resp[..n]);
             assert!(response.contains("HTTP/1.1 200 OK"));
-            assert!(response.contains(r#"\"status\":\"HEALTHY\""#));
+            assert!(response.contains(r#""status":"HEALTHY""#));
             assert!(response.contains("application/json"));
         }
     }
