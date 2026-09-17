@@ -4,6 +4,7 @@ pub mod constants;
 pub mod pool;
 pub mod order;
 pub mod book;
+pub mod command;
 pub mod engine;
 pub mod instrument;
 pub mod sequence;
@@ -14,8 +15,9 @@ pub mod metrics;
 pub mod health;
 
 pub use constants::*;
-pub use pool::{Order, OrderPool};
+pub use pool::{CommandKind, Order, OrderPool};
 pub use order::{ClientOrderId, ExchangeOrderId, OrderKey, OrderPacket};
+pub use command::{CancelOrder, CommandRejectReason, ExchangeEvent, NewOrder, OrderCommand, OrderSide, ReplaceOrder};
 pub use book::{PriceLevel, OrderBook};
 pub use engine::{AcceptedOrder, MatchingEngine, OrderAcceptError, Trade};
 pub use instrument::{
