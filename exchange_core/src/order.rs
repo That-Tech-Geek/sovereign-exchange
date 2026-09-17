@@ -63,9 +63,21 @@ impl OrderPacket {
 }
 
 impl OrderPool {
-    /// Allocate an accepted order with exchange identity and canonical sequence.
+    /// Low-level allocation helper retained for pool tests/tools that do not
+    /// participate in the exchange admission path. Such records have sequence
+    /// zero and are not exchange-sequenced commands.
     #[inline(always)]
     pub fn allocate_from_packet(
+        &mut self,
+        packet: &OrderPacket,
+        exchange_order_id: ExchangeOrderId,
+    ) -> u32 {
+        self.allocate_from_packet_with_sequence(packet, exchange_order_id, SequenceNumber(0))
+    }
+
+    /// Allocate an accepted order with exchange identity and canonical sequence.
+    #[inline(always)]
+    pub fn allocate_from_packet_with_sequence(
         &mut self,
         packet: &OrderPacket,
         exchange_order_id: ExchangeOrderId,
