@@ -14,7 +14,7 @@ pub struct OrderPacket {
     pub price: u32,          // 4 bytes: scaled integer price
     pub quantity: u32,       // 4 bytes: total quantity
     pub timestamp: u64,      // 8 bytes: client timestamp metadata
-    pub _pad: u8,            // 1 byte: protocol padding
+    pub _pad: u8,             // 1 byte: protocol padding
 }
 
 impl OrderPacket {
@@ -24,8 +24,8 @@ impl OrderPacket {
     }
 
     #[inline(always)]
-    pub fn to_bytes(&self) -> [u8; 32] {
-        unsafe { std::mem::transmute_copy(self) }
+    pub fn to_bytes(self) -> [u8; 32] {
+        unsafe { std::mem::transmute_copy(&self) }
     }
 }
 
