@@ -4,16 +4,16 @@ use crate::constants::{MAX_ORDERS, NULL_ORDER};
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub order_id: u64,
-    pub account_id: u32,
-    pub ticker_id: u16,
-    pub side: u8,
-    pub price: u32,
-    pub quantity: u32,
-    pub remaining: u32,
-    pub next: u32,
-    pub prev: u32,
-    pub timestamp: u64,
+    pub order_id: u64,       // Exchange/client order ID; identity semantics are refined in PR 2.
+    pub account_id: u32,     // Trader/account identifier.
+    pub instrument_id: u16,  // Index into the instrument registry.
+    pub side: u8,            // 0 = Buy, 1 = Sell, 2 = Cancel command.
+    pub price: u32,          // Scaled integer price.
+    pub quantity: u32,       // Original quantity.
+    pub remaining: u32,      // Quantity left to fill.
+    pub next: u32,           // Next order in price-level FIFO linked list.
+    pub prev: u32,           // Previous order in price-level FIFO linked list.
+    pub timestamp: u64,      // Client timestamp; not used for cross-instrument routing.
 }
 
 pub struct OrderPool {
@@ -22,24 +22,15 @@ pub struct OrderPool {
     pub allocated_count: u32,
 }
 
-impl Default for OrderPool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl OrderPool {
+    /// Creates a pool with MAX_ORDERS pre-allocated slots.
     pub fn new() -> Self {
         let mut data = Vec::with_capacity(MAX_ORDERS);
         data.resize(MAX_ORDERS, Order::default());
 
-        for (i, order) in data
-            .iter_mut()
-            .enumerate()
-            .skip(1)
-            .take(MAX_ORDERS.saturating_sub(2))
-        {
-            order.next = (i + 1) as u32;
+        // Slot 0 is reserved as NULL_ORDER sentinel.
+        for i in 1..MAX_ORDERS - 1 {
+            data[i].next = (i + 1) as u32;
         }
         data[MAX_ORDERS - 1].next = u32::MAX;
 

@@ -1,8 +1,9 @@
-use crate::constants::NULL_ORDER;
-use crate::pool::OrderPool;
 use std::collections::{BTreeMap, HashMap};
 
-/// Represents a single price level with a linked list of orders for strict FIFO priority.
+use crate::constants::NULL_ORDER;
+use crate::pool::OrderPool;
+
+/// A single price level with strict FIFO order priority.
 #[derive(Clone, Debug, Default)]
 pub struct PriceLevel {
     pub head: u32,
@@ -22,17 +23,15 @@ impl PriceLevel {
     }
 }
 
-/// Order book for a single ticker (Central Limit Order Book).
+/// Central Limit Order Book for exactly one instrument.
+///
+/// The matcher owns one OrderBook per instrument. There is deliberately no
+/// instrument identifier inside the book itself: the containing exchange
+/// determines which book is authoritative for a given instrument ID.
 pub struct OrderBook {
     pub bids: BTreeMap<u32, PriceLevel>,
     pub asks: BTreeMap<u32, PriceLevel>,
     pub order_map: HashMap<u64, u32>,
-}
-
-impl Default for OrderBook {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl OrderBook {
@@ -44,20 +43,16 @@ impl OrderBook {
         }
     }
 
-    /// Insert a limit order into the book.
     #[inline(always)]
     pub fn insert_limit(&mut self, idx: u32, pool: &mut OrderPool) {
         let side = pool.data[idx as usize].side;
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let order_id = pool.data[idx as usize].order_id;
-        let map = if side == 0 {
-            &mut self.bids
-        } else {
-            &mut self.asks
-        };
+        let map = if side == 0 { &mut self.bids } else { &mut self.asks };
 
         let level = map.entry(price).or_insert_with(PriceLevel::new);
+
         if level.tail == NULL_ORDER {
             level.head = idx;
         } else {
@@ -73,7 +68,6 @@ impl OrderBook {
         }
     }
 
-    /// Remove an order from the book (cancellation or full fill).
     #[inline(always)]
     pub fn remove_order(&mut self, idx: u32, pool: &mut OrderPool) {
         let side = pool.data[idx as usize].side;
@@ -87,11 +81,7 @@ impl OrderBook {
             self.order_map.remove(&order_id);
         }
 
-        let map = if side == 0 {
-            &mut self.bids
-        } else {
-            &mut self.asks
-        };
+        let map = if side == 0 { &mut self.bids } else { &mut self.asks };
 
         if let Some(level) = map.get_mut(&price) {
             if prev != NULL_ORDER {
@@ -106,18 +96,10 @@ impl OrderBook {
                 level.tail = prev;
             }
 
-            if level.volume >= remaining {
-                level.volume -= remaining;
-            } else {
-                level.volume = 0;
-            }
+            level.volume = level.volume.saturating_sub(remaining);
+            level.order_count = level.order_count.saturating_sub(1);
 
-            if level.order_count > 0 {
-                level.order_count -= 1;
-            }
-
-            let should_remove = level.head == NULL_ORDER || level.volume == 0;
-            if should_remove {
+            if level.head == NULL_ORDER || level.order_count == 0 {
                 map.remove(&price);
             }
 
@@ -125,37 +107,13 @@ impl OrderBook {
         }
     }
 
-    /// Remove an order by its client-provided `order_id`.
     #[inline(always)]
     pub fn remove_order_by_id(&mut self, order_id: u64, pool: &mut OrderPool) -> bool {
-        if let Some(&idx) = self.order_map.get(&order_id) {
-            self.remove_order(idx, pool);
-            return true;
-        }
-
-        for level in self.bids.values() {
-            let mut curr = level.head;
-            while curr != NULL_ORDER {
-                if pool.data[curr as usize].order_id == order_id {
-                    self.remove_order(curr, pool);
-                    return true;
-                }
-                curr = pool.data[curr as usize].next;
-            }
-        }
-
-        for level in self.asks.values() {
-            let mut curr = level.head;
-            while curr != NULL_ORDER {
-                if pool.data[curr as usize].order_id == order_id {
-                    self.remove_order(curr, pool);
-                    return true;
-                }
-                curr = pool.data[curr as usize].next;
-            }
-        }
-
-        false
+        let Some(&idx) = self.order_map.get(&order_id) else {
+            return false;
+        };
+        self.remove_order(idx, pool);
+        true
     }
 
     #[inline(always)]
