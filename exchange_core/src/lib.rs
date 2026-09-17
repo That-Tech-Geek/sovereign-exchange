@@ -5,6 +5,7 @@ pub mod pool;
 pub mod order;
 pub mod book;
 pub mod engine;
+pub mod instrument;
 pub mod ring;
 pub mod scavenger;
 pub mod ticker;
@@ -16,8 +17,11 @@ pub use pool::{Order, OrderPool};
 pub use order::OrderPacket;
 pub use book::{PriceLevel, OrderBook};
 pub use engine::{MatchingEngine, Trade};
+pub use instrument::{
+    future_instrument_id, spot_instrument_id, Instrument, InstrumentRegistry,
+    InstrumentStatus, MarketType, SovereignDefinition, SOVEREIGNS,
+};
 pub use ring::RingBuffer;
 pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
 pub use metrics::PerformanceMetrics;
 pub use health::{HealthContext, generate_health_json, start_health_server};
-
