@@ -111,9 +111,6 @@ impl InstrumentRegistry {
         }
     }
 
-    /// Build a registry from the sovereign metadata currently present in the
-    /// repository. Additional sovereigns can be registered without changing
-    /// the matching architecture.
     pub fn from_sovereigns(sovereigns: &[SovereignDefinition]) -> Self {
         assert!(sovereigns.len() <= MAX_SOVEREIGNS);
 
@@ -175,6 +172,11 @@ impl InstrumentRegistry {
     }
 
     #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline(always)]
     pub const fn capacity(&self) -> usize {
         MAX_INSTRUMENTS
     }
@@ -186,7 +188,6 @@ impl Default for InstrumentRegistry {
     }
 }
 
-/// Existing country metadata adapted into a sovereign-level definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SovereignDefinition {
     pub id: u16,
@@ -198,118 +199,17 @@ pub struct SovereignDefinition {
     pub total_shares: u64,
 }
 
-/// Seed sovereign universe currently represented in the repository.
-///
-/// This intentionally remains the existing 12-country dataset. The registry
-/// capacity is 196 sovereigns / 392 instruments; adding sovereign metadata is
-/// a separate data task and does not require another engine architecture.
 pub const SOVEREIGNS: &[SovereignDefinition] = &[
-    SovereignDefinition {
-        id: 0,
-        symbol: "USA",
-        country_name: "United States",
-        currency: "USD",
-        tick_size: 1,
-        base_price: 34500,
-        total_shares: 10_000_000_000,
-    },
-    SovereignDefinition {
-        id: 1,
-        symbol: "GER",
-        country_name: "Germany",
-        currency: "EUR",
-        tick_size: 1,
-        base_price: 18200,
-        total_shares: 4_500_000_000,
-    },
-    SovereignDefinition {
-        id: 2,
-        symbol: "JPN",
-        country_name: "Japan",
-        currency: "JPY",
-        tick_size: 1,
-        base_price: 22400,
-        total_shares: 5_200_000_000,
-    },
-    SovereignDefinition {
-        id: 3,
-        symbol: "GBR",
-        country_name: "United Kingdom",
-        currency: "GBP",
-        tick_size: 1,
-        base_price: 16800,
-        total_shares: 3_800_000_000,
-    },
-    SovereignDefinition {
-        id: 4,
-        symbol: "FRA",
-        country_name: "France",
-        currency: "EUR",
-        tick_size: 1,
-        base_price: 15900,
-        total_shares: 3_600_000_000,
-    },
-    SovereignDefinition {
-        id: 5,
-        symbol: "CAN",
-        country_name: "Canada",
-        currency: "CAD",
-        tick_size: 1,
-        base_price: 14200,
-        total_shares: 2_900_000_000,
-    },
-    SovereignDefinition {
-        id: 6,
-        symbol: "AUS",
-        country_name: "Australia",
-        currency: "AUD",
-        tick_size: 1,
-        base_price: 13500,
-        total_shares: 2_700_000_000,
-    },
-    SovereignDefinition {
-        id: 7,
-        symbol: "CHE",
-        country_name: "Switzerland",
-        currency: "CHF",
-        tick_size: 1,
-        base_price: 28900,
-        total_shares: 1_900_000_000,
-    },
-    SovereignDefinition {
-        id: 8,
-        symbol: "IND",
-        country_name: "India",
-        currency: "INR",
-        tick_size: 1,
-        base_price: 11200,
-        total_shares: 8_400_000_000,
-    },
-    SovereignDefinition {
-        id: 9,
-        symbol: "BRA",
-        country_name: "Brazil",
-        currency: "BRL",
-        tick_size: 1,
-        base_price: 9800,
-        total_shares: 3_100_000_000,
-    },
-    SovereignDefinition {
-        id: 10,
-        symbol: "SGP",
-        country_name: "Singapore",
-        currency: "SGD",
-        tick_size: 1,
-        base_price: 21500,
-        total_shares: 1_200_000_000,
-    },
-    SovereignDefinition {
-        id: 11,
-        symbol: "KOR",
-        country_name: "South Korea",
-        currency: "KRW",
-        tick_size: 1,
-        base_price: 14700,
-        total_shares: 2_500_000_000,
-    },
+    SovereignDefinition { id: 0, symbol: "USA", country_name: "United States", currency: "USD", tick_size: 1, base_price: 34500, total_shares: 10_000_000_000 },
+    SovereignDefinition { id: 1, symbol: "GER", country_name: "Germany", currency: "EUR", tick_size: 1, base_price: 18200, total_shares: 4_500_000_000 },
+    SovereignDefinition { id: 2, symbol: "JPN", country_name: "Japan", currency: "JPY", tick_size: 1, base_price: 22400, total_shares: 5_200_000_000 },
+    SovereignDefinition { id: 3, symbol: "GBR", country_name: "United Kingdom", currency: "GBP", tick_size: 1, base_price: 16800, total_shares: 3_800_000_000 },
+    SovereignDefinition { id: 4, symbol: "FRA", country_name: "France", currency: "EUR", tick_size: 1, base_price: 15900, total_shares: 3_600_000_000 },
+    SovereignDefinition { id: 5, symbol: "CAN", country_name: "Canada", currency: "CAD", tick_size: 1, base_price: 14200, total_shares: 2_900_000_000 },
+    SovereignDefinition { id: 6, symbol: "AUS", country_name: "Australia", currency: "AUD", tick_size: 1, base_price: 13500, total_shares: 2_700_000_000 },
+    SovereignDefinition { id: 7, symbol: "CHE", country_name: "Switzerland", currency: "CHF", tick_size: 1, base_price: 28900, total_shares: 1_900_000_000 },
+    SovereignDefinition { id: 8, symbol: "IND", country_name: "India", currency: "INR", tick_size: 1, base_price: 11200, total_shares: 8_400_000_000 },
+    SovereignDefinition { id: 9, symbol: "BRA", country_name: "Brazil", currency: "BRL", tick_size: 1, base_price: 9800, total_shares: 3_100_000_000 },
+    SovereignDefinition { id: 10, symbol: "SGP", country_name: "Singapore", currency: "SGD", tick_size: 1, base_price: 21500, total_shares: 1_200_000_000 },
+    SovereignDefinition { id: 11, symbol: "KOR", country_name: "South Korea", currency: "KRW", tick_size: 1, base_price: 14700, total_shares: 2_500_000_000 },
 ];
