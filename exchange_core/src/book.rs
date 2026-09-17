@@ -28,6 +28,10 @@ impl PriceLevel {
 /// Client identity is unique within this book by `(account_id,
 /// client_order_id)`. The exchange-assigned ID is stored on each pool order
 /// and is not used for client cancellation lookup.
+///
+/// FIFO at a price level is canonical exchange sequence order. `insert_limit`
+/// therefore appends to the tail: the single-writer matcher must receive
+/// accepted commands in ascending `SequenceNumber` order.
 pub struct OrderBook {
     pub bids: BTreeMap<u32, PriceLevel>,
     pub asks: BTreeMap<u32, PriceLevel>,
