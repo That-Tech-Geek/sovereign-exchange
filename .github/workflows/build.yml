@@ -8,9 +8,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,17 +22,22 @@ jobs:
         with:
           workspaces: exchange_core
 
-      - name: Format Rust sources
-        run: cd exchange_core && cargo fmt
+      - name: Check formatting
+        run: cd exchange_core && cargo fmt -- --check
 
-      - name: Commit formatting changes
+      - name: Build Debug
+        run: cd exchange_core && cargo build --verbose
+
+      - name: Run Unit Tests
+        run: cd exchange_core && cargo test --verbose
+
+      - name: Run Clippy
+        run: cd exchange_core && cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build Release (Optimized & Stripped)
+        run: cd exchange_core && cargo build --release
+
+      - name: Verify Binary Output
         run: |
-          if git diff --quiet; then
-            echo "Rust sources already formatted."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add exchange_core
-          git commit -m "style: format Rust sources"
-          git push origin HEAD:main
+          test -f exchange_core/target/release/exchange_core
+          echo "Release binary verified."
