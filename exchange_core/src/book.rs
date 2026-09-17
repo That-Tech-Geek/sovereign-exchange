@@ -49,7 +49,11 @@ impl OrderBook {
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let order_id = pool.data[idx as usize].order_id;
-        let map = if side == 0 { &mut self.bids } else { &mut self.asks };
+        let map = if side == 0 {
+            &mut self.bids
+        } else {
+            &mut self.asks
+        };
 
         let level = map.entry(price).or_insert_with(PriceLevel::new);
 
@@ -81,7 +85,11 @@ impl OrderBook {
             self.order_map.remove(&order_id);
         }
 
-        let map = if side == 0 { &mut self.bids } else { &mut self.asks };
+        let map = if side == 0 {
+            &mut self.bids
+        } else {
+            &mut self.asks
+        };
 
         if let Some(level) = map.get_mut(&price) {
             if prev != NULL_ORDER {

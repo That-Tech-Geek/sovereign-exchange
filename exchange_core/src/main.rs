@@ -1,16 +1,16 @@
 #![allow(dead_code, unused_imports)]
 
-mod constants;
-mod pool;
-mod order;
 mod book;
+mod constants;
 mod engine;
+mod health;
 mod instrument;
+mod metrics;
+mod order;
+mod pool;
 mod ring;
 mod scavenger;
 mod ticker;
-mod metrics;
-mod health;
 
 use core_affinity::set_for_current;
 use crossbeam_channel::unbounded;
@@ -32,7 +32,9 @@ fn main() {
             if set_for_current(core) {
                 println!("✅ Matching core pinned successfully to Core {:?}", core.id);
             } else {
-                eprintln!("⚠️ Warning: Failed to set CPU affinity (continuing without hard pinning)");
+                eprintln!(
+                    "⚠️ Warning: Failed to set CPU affinity (continuing without hard pinning)"
+                );
             }
         }
     } else {
@@ -62,8 +64,15 @@ fn main() {
     let mut engine = engine::MatchingEngine::new();
     let ring = ring::RingBuffer::new();
     println!("✅ OrderPool initialized in {:.2?}", init_start.elapsed());
-    println!("✅ Matching engine initialized with {} independent books", engine.books.len());
-    println!("✅ Registered instruments: {} / {} capacity", engine.instruments.len(), constants::MAX_INSTRUMENTS);
+    println!(
+        "✅ Matching engine initialized with {} independent books",
+        engine.books.len()
+    );
+    println!(
+        "✅ Registered instruments: {} / {} capacity",
+        engine.instruments.len(),
+        constants::MAX_INSTRUMENTS
+    );
 
     let health_ctx = health::HealthContext::new(
         is_running.clone(),
@@ -105,10 +114,17 @@ fn main() {
 
     let warmup_duration = warmup_start.elapsed();
     let micros = warmup_duration.as_micros() as f64 / 10_000.0;
-    println!("✅ Warmup complete: 10,000 orders matched in {:.2?} (~{:.2} µs/order)", warmup_duration, micros);
+    println!(
+        "✅ Warmup complete: 10,000 orders matched in {:.2?} (~{:.2} µs/order)",
+        warmup_duration, micros
+    );
     println!("   Trades generated: {}", warmup_trades);
     if let Some(book) = engine.book(0) {
-        println!("   Instrument 0 levels: bids={}, asks={}", book.bids.len(), book.asks.len());
+        println!(
+            "   Instrument 0 levels: bids={}, asks={}",
+            book.bids.len(),
+            book.asks.len()
+        );
     }
 
     let cancel_test_id = 888_888u64;
@@ -125,8 +141,14 @@ fn main() {
     let test_idx = engine.pool.allocate_from_packet(&cancel_packet);
     engine.process_order(test_idx);
     let cancel_success = engine.cancel_order(0, cancel_test_id);
-    assert!(cancel_success, "Cancellation must succeed for resting order");
-    println!("✅ Instrument-scoped order cancellation verified (Order ID: {})", cancel_test_id);
+    assert!(
+        cancel_success,
+        "Cancellation must succeed for resting order"
+    );
+    println!(
+        "✅ Instrument-scoped order cancellation verified (Order ID: {})",
+        cancel_test_id
+    );
 
     println!("⚡ Matching engine active and listening on ring buffer...");
     println!("   Press Ctrl+C to terminate or submit orders via ring buffer.");

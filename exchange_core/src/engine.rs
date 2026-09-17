@@ -133,12 +133,16 @@ impl MatchingEngine {
         let incoming_price = pool.data[incoming_idx as usize].price;
 
         while pool.data[incoming_idx as usize].remaining > 0 {
-            let Some(best_ask) = book.best_ask() else { break };
+            let Some(best_ask) = book.best_ask() else {
+                break;
+            };
             if incoming_price < best_ask {
                 break;
             }
 
-            let Some(ask_idx) = book.best_ask_head() else { break };
+            let Some(ask_idx) = book.best_ask_head() else {
+                break;
+            };
             let ask_price = pool.data[ask_idx as usize].price;
             let ask_remaining = pool.data[ask_idx as usize].remaining;
             let incoming_remaining = pool.data[incoming_idx as usize].remaining;
@@ -190,12 +194,16 @@ impl MatchingEngine {
         let incoming_price = pool.data[incoming_idx as usize].price;
 
         while pool.data[incoming_idx as usize].remaining > 0 {
-            let Some(best_bid) = book.best_bid() else { break };
+            let Some(best_bid) = book.best_bid() else {
+                break;
+            };
             if incoming_price > best_bid {
                 break;
             }
 
-            let Some(bid_idx) = book.best_bid_head() else { break };
+            let Some(bid_idx) = book.best_bid_head() else {
+                break;
+            };
             let bid_price = pool.data[bid_idx as usize].price;
             let bid_remaining = pool.data[bid_idx as usize].remaining;
             let incoming_remaining = pool.data[incoming_idx as usize].remaining;

@@ -3,7 +3,15 @@ use exchange_core::instrument::{future_instrument_id, spot_instrument_id};
 use exchange_core::order::OrderPacket;
 use exchange_core::pool::OrderPool;
 
-fn packet(order_id: u64, account_id: u32, instrument_id: u16, side: u8, price: u32, quantity: u32, timestamp: u64) -> OrderPacket {
+fn packet(
+    order_id: u64,
+    account_id: u32,
+    instrument_id: u16,
+    side: u8,
+    price: u32,
+    quantity: u32,
+    timestamp: u64,
+) -> OrderPacket {
     OrderPacket {
         order_id,
         account_id,
@@ -78,8 +86,22 @@ fn test_spot_and_future_have_independent_books() {
     assert_eq!(engine.trades[0].instrument_id, spot);
     assert_eq!(engine.trades[0].seller, 101);
 
-    assert_eq!(engine.book(spot).unwrap().best_ask_head().map(|i| engine.pool.get(i).remaining), Some(50));
-    assert_eq!(engine.book(future).unwrap().best_ask_head().map(|i| engine.pool.get(i).remaining), Some(100));
+    assert_eq!(
+        engine
+            .book(spot)
+            .unwrap()
+            .best_ask_head()
+            .map(|i| engine.pool.get(i).remaining),
+        Some(50)
+    );
+    assert_eq!(
+        engine
+            .book(future)
+            .unwrap()
+            .best_ask_head()
+            .map(|i| engine.pool.get(i).remaining),
+        Some(100)
+    );
 }
 
 #[test]
@@ -88,10 +110,14 @@ fn test_different_sovereigns_cannot_cross() {
     let usa = spot_instrument_id(0);
     let germany = spot_instrument_id(1);
 
-    let idx = engine.pool.allocate_from_packet(&packet(10, 100, usa, 1, 10000, 100, 1));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(10, 100, usa, 1, 10000, 100, 1));
     engine.process_order(idx);
 
-    let idx = engine.pool.allocate_from_packet(&packet(11, 200, germany, 0, 10000, 100, 2));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(11, 200, germany, 0, 10000, 100, 2));
     assert_eq!(engine.process_order(idx), 0);
 
     assert_eq!(engine.book(usa).unwrap().best_ask(), Some(10000));
@@ -104,9 +130,13 @@ fn test_cancellation_is_scoped_to_instrument() {
     let usa = spot_instrument_id(0);
     let germany = spot_instrument_id(1);
 
-    let idx = engine.pool.allocate_from_packet(&packet(100, 1, usa, 0, 9900, 10, 1));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(100, 1, usa, 0, 9900, 10, 1));
     engine.process_order(idx);
-    let idx = engine.pool.allocate_from_packet(&packet(100, 2, germany, 0, 9800, 20, 2));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(100, 2, germany, 0, 9800, 20, 2));
     engine.process_order(idx);
 
     assert!(engine.cancel_order(usa, 100));
@@ -123,10 +153,14 @@ fn test_basic_limit_matching_and_fifo() {
     let mut engine = MatchingEngine::new();
     let instrument = spot_instrument_id(0);
 
-    let idx = engine.pool.allocate_from_packet(&packet(1, 101, instrument, 1, 10000, 100, 1000));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(1, 101, instrument, 1, 10000, 100, 1000));
     assert_eq!(engine.process_order(idx), 0);
 
-    let idx = engine.pool.allocate_from_packet(&packet(2, 202, instrument, 0, 10000, 50, 1001));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(2, 202, instrument, 0, 10000, 50, 1001));
     assert_eq!(engine.process_order(idx), 1);
     assert_eq!(engine.trades[0].qty, 50);
     assert_eq!(engine.trades[0].price, 10000);
@@ -143,11 +177,15 @@ fn test_strict_fifo_price_time_priority() {
     let instrument = spot_instrument_id(1);
 
     for &(id, qty, acc, timestamp) in &[(1u64, 10u32, 1u32, 100u64), (2, 20, 2, 101)] {
-        let idx = engine.pool.allocate_from_packet(&packet(id, acc, instrument, 1, 10000, qty, timestamp));
+        let idx = engine
+            .pool
+            .allocate_from_packet(&packet(id, acc, instrument, 1, 10000, qty, timestamp));
         engine.process_order(idx);
     }
 
-    let idx = engine.pool.allocate_from_packet(&packet(3, 3, instrument, 0, 10000, 15, 102));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(3, 3, instrument, 0, 10000, 15, 102));
     assert_eq!(engine.process_order(idx), 2);
     assert_eq!(engine.trades[0].seller, 1);
     assert_eq!(engine.trades[0].qty, 10);
@@ -164,7 +202,9 @@ fn test_order_cancellation_and_pool_recovery() {
     let mut engine = MatchingEngine::new();
     let instrument = spot_instrument_id(0);
 
-    let idx = engine.pool.allocate_from_packet(&packet(5001, 42, instrument, 0, 9950, 100, 1000));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(5001, 42, instrument, 0, 9950, 100, 1000));
     let initial_allocated = engine.pool.allocated_count;
     engine.process_order(idx);
 
@@ -181,12 +221,16 @@ fn test_middle_cancellation_preserves_fifo() {
     let instrument = spot_instrument_id(2);
 
     for &(id, qty, acc) in &[(101u64, 10u32, 1001u32), (102, 20, 1002), (103, 30, 1003)] {
-        let idx = engine.pool.allocate_from_packet(&packet(id, acc, instrument, 1, 10000, qty, id));
+        let idx = engine
+            .pool
+            .allocate_from_packet(&packet(id, acc, instrument, 1, 10000, qty, id));
         engine.process_order(idx);
     }
 
     assert!(engine.cancel_order(instrument, 102));
-    let idx = engine.pool.allocate_from_packet(&packet(200, 888, instrument, 0, 10000, 15, 5000));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(200, 888, instrument, 0, 10000, 15, 5000));
     assert_eq!(engine.process_order(idx), 2);
     assert_eq!(engine.trades[0].seller, 1001);
     assert_eq!(engine.trades[0].qty, 10);
@@ -200,10 +244,15 @@ fn test_invalid_instrument_is_rejected_without_mutating_any_book() {
     let invalid = 391u16;
     assert!(engine.instrument(invalid).is_none());
 
-    let idx = engine.pool.allocate_from_packet(&packet(999, 1, invalid, 1, 10000, 100, 1));
+    let idx = engine
+        .pool
+        .allocate_from_packet(&packet(999, 1, invalid, 1, 10000, 100, 1));
     assert_eq!(engine.process_order(idx), 0);
     assert_eq!(engine.pool.allocated_count, 0);
-    assert!(engine.books.iter().all(|book| book.bids.is_empty() && book.asks.is_empty()));
+    assert!(engine
+        .books
+        .iter()
+        .all(|book| book.bids.is_empty() && book.asks.is_empty()));
 }
 
 #[test]

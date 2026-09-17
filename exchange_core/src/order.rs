@@ -7,14 +7,14 @@ use crate::pool::OrderPool;
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrderPacket {
-    pub order_id: u64,       // 8 bytes: existing client/exchange order ID field
-    pub account_id: u32,     // 4 bytes: account ID
-    pub instrument_id: u16,  // 2 bytes: instrument ID [0, MAX_INSTRUMENTS)
-    pub side: u8,            // 1 byte: 0 = Buy, 1 = Sell, 2 = Cancel (legacy command encoding)
-    pub price: u32,          // 4 bytes: scaled integer price
-    pub quantity: u32,       // 4 bytes: total quantity
-    pub timestamp: u64,      // 8 bytes: client timestamp metadata
-    pub _pad: u8,             // 1 byte: protocol padding
+    pub order_id: u64,      // 8 bytes: existing client/exchange order ID field
+    pub account_id: u32,    // 4 bytes: account ID
+    pub instrument_id: u16, // 2 bytes: instrument ID [0, MAX_INSTRUMENTS)
+    pub side: u8,           // 1 byte: 0 = Buy, 1 = Sell, 2 = Cancel (legacy command encoding)
+    pub price: u32,         // 4 bytes: scaled integer price
+    pub quantity: u32,      // 4 bytes: total quantity
+    pub timestamp: u64,     // 8 bytes: client timestamp metadata
+    pub _pad: u8,           // 1 byte: protocol padding
 }
 
 impl OrderPacket {
