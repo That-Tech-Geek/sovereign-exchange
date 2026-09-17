@@ -4,16 +4,16 @@ use crate::constants::{MAX_ORDERS, NULL_ORDER};
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub order_id: u64, // Exchange/client order ID; identity semantics are refined in PR 2.
-    pub account_id: u32, // Trader/account identifier.
+    pub order_id: u64,      // Exchange/client order ID; identity semantics are refined in PR 2.
+    pub account_id: u32,    // Trader/account identifier.
     pub instrument_id: u16, // Index into the instrument registry.
-    pub side: u8,      // 0 = Buy, 1 = Sell, 2 = Cancel command.
-    pub price: u32,    // Scaled integer price.
-    pub quantity: u32, // Original quantity.
-    pub remaining: u32, // Quantity left to fill.
-    pub next: u32,     // Next order in price-level FIFO linked list.
-    pub prev: u32,     // Previous order in price-level FIFO linked list.
-    pub timestamp: u64, // Client timestamp; not used for cross-instrument routing.
+    pub side: u8,           // 0 = Buy, 1 = Sell, 2 = Cancel command.
+    pub price: u32,         // Scaled integer price.
+    pub quantity: u32,      // Original quantity.
+    pub remaining: u32,     // Quantity left to fill.
+    pub next: u32,          // Next order in price-level FIFO linked list.
+    pub prev: u32,          // Previous order in price-level FIFO linked list.
+    pub timestamp: u64,     // Client timestamp; not used for cross-instrument routing.
 }
 
 pub struct OrderPool {
@@ -29,8 +29,8 @@ impl OrderPool {
         data.resize(MAX_ORDERS, Order::default());
 
         // Slot 0 is reserved as NULL_ORDER sentinel.
-        for i in 1..MAX_ORDERS - 1 {
-            data[i].next = (i + 1) as u32;
+        for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS - 1).skip(1) {
+            order.next = (i + 1) as u32;
         }
         data[MAX_ORDERS - 1].next = u32::MAX;
 
@@ -71,5 +71,11 @@ impl OrderPool {
     #[inline(always)]
     pub fn get(&self, idx: u32) -> &Order {
         &self.data[idx as usize]
+    }
+}
+
+impl Default for OrderPool {
+    fn default() -> Self {
+        Self::new()
     }
 }
