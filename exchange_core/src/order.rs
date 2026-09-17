@@ -27,20 +27,21 @@ pub struct OrderKey {
 
 /// Binary order packet (32 bytes total).
 ///
-/// The existing `order_id` wire field is now explicitly a `client_order_id`.
-/// The exchange order ID is assigned after validation at ingress and is never
-/// supplied by the client.
+/// `client_order_id` occupies the exact same 64-bit wire position previously
+/// named `order_id`. Renaming the Rust field does not change the binary layout.
+/// The exchange order ID is assigned after admission and is never supplied by
+/// the client.
 #[repr(C, packed)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OrderPacket {
-    pub order_id: u64,       // 8 bytes: client_order_id
-    pub account_id: u32,     // 4 bytes: account ID
-    pub instrument_id: u16,  // 2 bytes: instrument ID
-    pub side: u8,            // 1 byte: 0 = Buy, 1 = Sell, 2 = Cancel
-    pub price: u32,          // 4 bytes: scaled integer price
-    pub quantity: u32,       // 4 bytes: total quantity
-    pub timestamp: u64,      // 8 bytes: client timestamp metadata
-    pub _pad: u8,            // 1 byte: protocol padding
+    pub client_order_id: u64, // 8 bytes: client-supplied order identity
+    pub account_id: u32,      // 4 bytes: account ID
+    pub instrument_id: u16,   // 2 bytes: instrument ID
+    pub side: u8,             // 1 byte: 0 = Buy, 1 = Sell, 2 = Cancel
+    pub price: u32,            // 4 bytes: scaled integer price
+    pub quantity: u32,         // 4 bytes: total quantity
+    pub timestamp: u64,        // 8 bytes: client timestamp metadata
+    pub _pad: u8,              // 1 byte: protocol padding
 }
 
 impl OrderPacket {
@@ -56,7 +57,7 @@ impl OrderPacket {
 
     #[inline(always)]
     pub fn client_order_id(&self) -> ClientOrderId {
-        ClientOrderId(self.order_id)
+        ClientOrderId(self.client_order_id)
     }
 }
 
@@ -71,7 +72,7 @@ impl OrderPool {
         let idx = self.allocate();
         let order = &mut self.data[idx as usize];
         order.exchange_order_id = exchange_order_id.0;
-        order.client_order_id = packet.order_id;
+        order.client_order_id = packet.client_order_id;
         order.account_id = packet.account_id;
         order.instrument_id = packet.instrument_id;
         order.side = packet.side;
