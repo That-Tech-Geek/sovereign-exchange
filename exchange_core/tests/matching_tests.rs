@@ -30,9 +30,12 @@ fn test_order_packet_size_and_parsing() {
 
     let raw = [0u8; 32];
     let packet = OrderPacket::from_bytes(&raw);
-    assert_eq!(packet.order_id, 0);
-    assert_eq!(packet.price, 0);
-    assert_eq!(packet.instrument_id, 0);
+    let order_id = packet.order_id;
+    let price = packet.price;
+    let instrument_id = packet.instrument_id;
+    assert_eq!(order_id, 0);
+    assert_eq!(price, 0);
+    assert_eq!(instrument_id, 0);
 }
 
 #[test]
