@@ -1,10 +1,8 @@
 use crate::command::{OrderCommand, OrderSide};
 use crate::constants::{MAX_ORDERS, NULL_ORDER};
-use crate::order::OrderPacket;
+use crate::order::{ExchangeOrderId, OrderPacket};
 use crate::sequence::SequenceNumber;
-use crate::order::ExchangeOrderId;
 
-/// Internal command kind after protocol decoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum CommandKind {
@@ -13,13 +11,12 @@ pub enum CommandKind {
     Replace = 2,
 }
 
-/// Order-pool allocation failures are ordinary admission failures, never panics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PoolError {
     Exhausted,
+    InvalidCommand,
 }
 
-/// Cache-line aligned order/command state stored in the exchange pool.
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
@@ -49,20 +46,13 @@ impl OrderPool {
     pub fn new() -> Self {
         let mut data = Vec::with_capacity(MAX_ORDERS);
         data.resize(MAX_ORDERS, Order::default());
-
         for i in 1..MAX_ORDERS - 1 {
             data[i].next = (i + 1) as u32;
         }
         data[MAX_ORDERS - 1].next = u32::MAX;
-
-        Self {
-            data,
-            free_head: 1,
-            allocated_count: 0,
-        }
+        Self { data, free_head: 1, allocated_count: 0 }
     }
 
-    /// Allocate one pool slot without ever panicking on exhaustion.
     #[inline(always)]
     pub fn allocate(&mut self) -> Result<u32, PoolError> {
         let idx = self.free_head;
@@ -75,7 +65,6 @@ impl OrderPool {
         Ok(idx)
     }
 
-    /// Allocate and populate a slot from a typed exchange command.
     #[inline(always)]
     pub fn allocate_from_command(
         &mut self,
@@ -85,7 +74,6 @@ impl OrderPool {
     ) -> Result<u32, PoolError> {
         let idx = self.allocate()?;
         let order = &mut self.data[idx as usize];
-
         match *command {
             OrderCommand::New(order_cmd) => {
                 order.client_order_id = order_cmd.client_order_id.0;
@@ -120,39 +108,30 @@ impl OrderPool {
                 order.replace_target_client_order_id = replace_cmd.target_client_order_id.0;
             }
         }
-
         order.exchange_order_id = exchange_order_id.0;
         Ok(idx)
     }
 
-    /// Legacy packet adapter retained for existing tests/tools.
     #[inline(always)]
     pub fn allocate_from_packet(
         &mut self,
         packet: &OrderPacket,
         exchange_order_id: ExchangeOrderId,
     ) -> Result<u32, PoolError> {
-        let command = match packet.side {
-            0 => OrderCommand::New(crate::command::NewOrder {
-                client_order_id: packet.client_order_id(),
-                account_id: packet.account_id,
-                instrument_id: packet.instrument_id,
-                side: OrderSide::Buy,
-                price: packet.price,
-                quantity: packet.quantity,
-                client_timestamp: packet.timestamp,
-            }),
-            1 => OrderCommand::New(crate::command::NewOrder {
-                client_order_id: packet.client_order_id(),
-                account_id: packet.account_id,
-                instrument_id: packet.instrument_id,
-                side: OrderSide::Sell,
-                price: packet.price,
-                quantity: packet.quantity,
-                client_timestamp: packet.timestamp,
-            }),
-            _ => return self.allocate(),
+        let side = match packet.side {
+            0 => OrderSide::Buy,
+            1 => OrderSide::Sell,
+            _ => return Err(PoolError::InvalidCommand),
         };
+        let command = OrderCommand::New(crate::command::NewOrder {
+            client_order_id: packet.client_order_id(),
+            account_id: packet.account_id,
+            instrument_id: packet.instrument_id,
+            side,
+            price: packet.price,
+            quantity: packet.quantity,
+            client_timestamp: packet.timestamp,
+        });
         self.allocate_from_command(&command, exchange_order_id, SequenceNumber::FIRST)
     }
 
