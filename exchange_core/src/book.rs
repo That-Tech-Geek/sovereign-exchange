@@ -154,3 +154,9 @@ impl OrderBook {
         (self.bids.len(), self.asks.len())
     }
 }
+
+impl Default for OrderBook {
+    fn default() -> Self {
+        Self::new()
+    }
+}
