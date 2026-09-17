@@ -6,6 +6,7 @@ pub mod order;
 pub mod book;
 pub mod engine;
 pub mod instrument;
+pub mod sequence;
 pub mod ring;
 pub mod scavenger;
 pub mod ticker;
@@ -21,6 +22,7 @@ pub use instrument::{
     future_instrument_id, spot_instrument_id, Instrument, InstrumentRegistry,
     InstrumentStatus, MarketType, SovereignDefinition, SOVEREIGNS,
 };
+pub use sequence::SequenceNumber;
 pub use ring::RingBuffer;
 pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
 pub use metrics::PerformanceMetrics;
