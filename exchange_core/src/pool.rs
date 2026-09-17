@@ -1,6 +1,15 @@
 use crate::constants::{MAX_ORDERS, NULL_ORDER};
 
-/// Cache-line aligned order state stored in the exchange pool.
+/// Internal command kind after protocol decoding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum CommandKind {
+    New = 0,
+    Cancel = 1,
+    Replace = 2,
+}
+
+/// Cache-line aligned order/command state stored in the exchange pool.
 #[repr(C, align(64))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
@@ -8,7 +17,8 @@ pub struct Order {
     pub client_order_id: u64,   // Client-supplied identity.
     pub account_id: u32,        // Trader/account identifier.
     pub instrument_id: u16,     // Instrument registry ID.
-    pub side: u8,               // 0 = Buy, 1 = Sell, 2 = Cancel command.
+    pub side: u8,               // 0 = Buy, 1 = Sell for New/Replace.
+    pub command_kind: u8,       // CommandKind; protocol command semantics are no longer encoded in side.
     pub price: u32,             // Scaled integer price.
     pub quantity: u32,          // Original quantity.
     pub remaining: u32,         // Quantity left to fill.
@@ -16,6 +26,7 @@ pub struct Order {
     pub prev: u32,              // Previous order in price-level FIFO linked list.
     pub sequence_number: u64,   // Canonical exchange admission sequence.
     pub client_timestamp: u64,  // Client timestamp metadata; never used for priority.
+    pub replace_target_client_order_id: u64, // Target for Replace commands; zero for New/Cancel.
 }
 
 pub struct OrderPool {
