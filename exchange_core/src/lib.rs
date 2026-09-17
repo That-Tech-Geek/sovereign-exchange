@@ -14,6 +14,7 @@ pub mod ticker;
 pub mod metrics;
 pub mod health;
 pub mod journal;
+pub mod replay;
 
 pub use constants::*;
 pub use pool::{CommandKind, Order, OrderPool, PoolError};
@@ -31,3 +32,4 @@ pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
 pub use metrics::PerformanceMetrics;
 pub use health::{HealthContext, generate_health_json, start_health_server};
 pub use journal::{Durability, EventJournal, JournalError, JournalPosition};
+pub use replay::{replay_bytes, replay_file, ReplayError, ReplayLedger, ReplayOrderKey, ReplayTrade};
