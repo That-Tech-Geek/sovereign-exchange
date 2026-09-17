@@ -1,5 +1,5 @@
-use crate::pool::OrderPool;
 use crate::command::OrderCommand;
+use crate::pool::OrderPool;
 use crate::sequence::SequenceNumber;
 
 /// Client-supplied identifier for an order.
