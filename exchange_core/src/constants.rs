@@ -3,7 +3,8 @@
 pub const MAX_ORDERS: usize = 5_000_000;
 pub const MAX_PRICE_LEVELS: usize = 100_000;
 pub const RING_BUFFER_SIZE: usize = 1_048_576;
-pub const MAX_TRADES_PER_MATCH: usize = 64;
+/// Initial capacity only. Matching is not capped at this number of fills.
+pub const INITIAL_TRADE_CAPACITY: usize = 64;
 pub const MAX_SOVEREIGNS: usize = 196;
 pub const MAX_INSTRUMENTS: usize = MAX_SOVEREIGNS * 2;
 pub const UDP_PORT: u16 = 8888;
