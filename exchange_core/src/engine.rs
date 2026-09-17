@@ -292,7 +292,8 @@ impl MatchingEngine {
             }
         }
 
-        for trade in &self.trades {
+        for i in 0..self.trades.len() {
+            let trade = self.trades[i];
             self.push_event(ExchangeEvent::Trade {
                 buyer: trade.buyer,
                 seller: trade.seller,
