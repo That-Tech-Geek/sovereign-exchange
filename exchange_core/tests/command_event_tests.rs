@@ -23,7 +23,7 @@ fn typed_new_command_gets_sequence_and_accept_event() {
     engine.process_command(accepted.pool_index);
     assert!(engine.events().iter().any(|event| matches!(
         event,
-        Some(ExchangeEvent::OrderAccepted { client_order_id, sequence_number, .. })
+        ExchangeEvent::OrderAccepted { client_order_id, sequence_number, .. }
             if *client_order_id == ClientOrderId(1) && *sequence_number == SequenceNumber::FIRST
     )));
 }
@@ -45,7 +45,7 @@ fn cancel_is_typed_and_emits_cancelled_event() {
 
     assert!(engine.events().iter().any(|event| matches!(
         event,
-        Some(ExchangeEvent::OrderCancelled { client_order_id, .. })
+        ExchangeEvent::OrderCancelled { client_order_id, .. }
             if *client_order_id == ClientOrderId(7)
     )));
 }
@@ -89,7 +89,7 @@ fn replace_gets_new_exchange_identity_and_new_sequence() {
     assert!(!engine.book(0).unwrap().contains_order(10, ClientOrderId(1)));
     assert!(engine.events().iter().any(|event| matches!(
         event,
-        Some(ExchangeEvent::OrderReplaced { old_client_order_id, new_client_order_id, .. })
+        ExchangeEvent::OrderReplaced { old_client_order_id, new_client_order_id, .. }
             if *old_client_order_id == ClientOrderId(1) && *new_client_order_id == ClientOrderId(2)
     )));
 }
@@ -110,4 +110,48 @@ fn replace_rejects_missing_target_without_consuming_sequence() {
     assert!(engine.accept_command(&replace).is_err());
     let accepted = engine.accept_command(&new_order(1, 10, 1000)).unwrap();
     assert_eq!(accepted.sequence_number, SequenceNumber::FIRST);
+}
+
+#[test]
+fn matching_continues_past_sixty_four_fills() {
+    let mut engine = MatchingEngine::new();
+
+    for i in 0..100u64 {
+        let command = OrderCommand::New(NewOrder {
+            client_order_id: ClientOrderId(i + 1),
+            account_id: (i + 1) as u32,
+            instrument_id: 0,
+            side: OrderSide::Sell,
+            price: 1000,
+            quantity: 1,
+            client_timestamp: i,
+        });
+        let accepted = engine.accept_command(&command).unwrap();
+        engine.process_command(accepted.pool_index);
+    }
+
+    let incoming = OrderCommand::New(NewOrder {
+        client_order_id: ClientOrderId(10_001),
+        account_id: 50_000,
+        instrument_id: 0,
+        side: OrderSide::Buy,
+        price: 1000,
+        quantity: 100,
+        client_timestamp: u64::MAX,
+    });
+    let accepted = engine.accept_command(&incoming).unwrap();
+    let fills = engine.process_command(accepted.pool_index);
+
+    assert_eq!(fills, 100);
+    assert_eq!(engine.trades.len(), 100);
+    assert_eq!(
+        engine
+            .events()
+            .iter()
+            .filter(|event| matches!(event, ExchangeEvent::Trade { .. }))
+            .count(),
+        100
+    );
+    assert!(engine.book(0).unwrap().bids.is_empty());
+    assert!(engine.book(0).unwrap().asks.is_empty());
 }
