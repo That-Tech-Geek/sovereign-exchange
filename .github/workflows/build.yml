@@ -41,3 +41,5 @@ jobs:
         run: |
           test -f exchange_core/target/release/exchange_core
           echo "Release binary verified."
+
+# Integration gate: the complete Rust validation chain must remain green on main.
