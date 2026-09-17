@@ -52,6 +52,15 @@ impl OrderSide {
             Self::Sell => 1,
         }
     }
+
+    #[inline(always)]
+    pub const fn from_wire(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(Self::Buy),
+            1 => Some(Self::Sell),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,12 +76,18 @@ pub enum CommandRejectReason {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExchangeEvent {
+    /// Contains the complete immutable order attributes required to rebuild
+    /// resting state without re-running the matcher.
     OrderAccepted {
         instrument_id: u16,
         account_id: u32,
         client_order_id: ClientOrderId,
         exchange_order_id: ExchangeOrderId,
         sequence_number: SequenceNumber,
+        side: OrderSide,
+        price: u32,
+        quantity: u32,
+        client_timestamp: u64,
     },
     OrderRejected {
         account_id: u32,
