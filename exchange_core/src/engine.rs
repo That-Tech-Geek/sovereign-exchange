@@ -115,7 +115,10 @@ impl MatchingEngine {
     }
 
     #[inline]
-    pub fn accept_order(&mut self, packet: &OrderPacket) -> Result<AcceptedOrder, OrderAcceptError> {
+    pub fn accept_order(
+        &mut self,
+        packet: &OrderPacket,
+    ) -> Result<AcceptedOrder, OrderAcceptError> {
         let command = OrderCommand::from_packet(packet).map_err(|reason| match reason {
             CommandRejectReason::InvalidSide => OrderAcceptError::InvalidSide(packet.side),
             _ => unreachable!("packet decoder only rejects invalid side"),
@@ -126,7 +129,10 @@ impl MatchingEngine {
     /// Admit a command atomically with respect to sequence/order identity and
     /// pool capacity. No sequence or exchange ID is consumed if allocation fails.
     #[inline]
-    pub fn accept_command(&mut self, command: &OrderCommand) -> Result<AcceptedOrder, OrderAcceptError> {
+    pub fn accept_command(
+        &mut self,
+        command: &OrderCommand,
+    ) -> Result<AcceptedOrder, OrderAcceptError> {
         let (instrument_id, account_id, client_order_id) = match *command {
             OrderCommand::New(o) => (o.instrument_id, o.account_id, o.client_order_id),
             OrderCommand::Cancel(o) => (o.instrument_id, o.account_id, o.client_order_id),
@@ -268,8 +274,10 @@ impl MatchingEngine {
                 return 0;
             }
             x if x == CommandKind::Replace as u8 => {
-                let target = ClientOrderId(self.pool.data[idx as usize].replace_target_client_order_id);
-                let exchange_order_id = ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id);
+                let target =
+                    ClientOrderId(self.pool.data[idx as usize].replace_target_client_order_id);
+                let exchange_order_id =
+                    ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id);
                 if !self.cancel_order(instrument_id, account_id, target) {
                     self.pool.deallocate(idx);
                     return 0;
@@ -388,11 +396,15 @@ impl MatchingEngine {
         let incoming_price = pool.data[incoming_idx as usize].price;
 
         while pool.data[incoming_idx as usize].remaining > 0 {
-            let Some(best_ask) = book.best_ask() else { break };
+            let Some(best_ask) = book.best_ask() else {
+                break;
+            };
             if incoming_price < best_ask {
                 break;
             }
-            let Some(ask_idx) = book.best_ask_head() else { break };
+            let Some(ask_idx) = book.best_ask_head() else {
+                break;
+            };
             let ask_price = pool.data[ask_idx as usize].price;
             let fill_qty = pool.data[incoming_idx as usize]
                 .remaining
@@ -440,11 +452,15 @@ impl MatchingEngine {
         let incoming_price = pool.data[incoming_idx as usize].price;
 
         while pool.data[incoming_idx as usize].remaining > 0 {
-            let Some(best_bid) = book.best_bid() else { break };
+            let Some(best_bid) = book.best_bid() else {
+                break;
+            };
             if incoming_price > best_bid {
                 break;
             }
-            let Some(bid_idx) = book.best_bid_head() else { break };
+            let Some(bid_idx) = book.best_bid_head() else {
+                break;
+            };
             let bid_price = pool.data[bid_idx as usize].price;
             let fill_qty = pool.data[incoming_idx as usize]
                 .remaining

@@ -1,6 +1,6 @@
 use exchange_core::{
-    ClientOrderId, IngressError, MatchingEngine, NewOrder, OrderCommand, OrderQueue, OrderSide,
-    OrderAcceptError, PoolError, SequenceNumber,
+    ClientOrderId, IngressError, MatchingEngine, NewOrder, OrderAcceptError, OrderCommand,
+    OrderQueue, OrderSide, PoolError, SequenceNumber,
 };
 
 fn new_order(id: u64) -> OrderCommand {
@@ -48,7 +48,10 @@ fn queue_full_releases_reserved_pool_slot() {
     assert_eq!(engine.pool.allocated_count, 2);
 
     assert_eq!(engine.enqueue_order(&queue, first.pool_index), Ok(()));
-    assert_eq!(engine.enqueue_order(&queue, second.pool_index), Err(IngressError::QueueFull));
+    assert_eq!(
+        engine.enqueue_order(&queue, second.pool_index),
+        Err(IngressError::QueueFull)
+    );
     assert_eq!(engine.pool.allocated_count, 1);
     assert_eq!(queue.len(), 1);
 

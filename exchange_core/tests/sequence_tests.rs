@@ -72,7 +72,10 @@ fn duplicate_rejection_does_not_consume_sequence_or_exchange_id() {
     engine.process_order(first.pool_index);
 
     let duplicate = engine.accept_order(&packet(7, 42, instrument, 0, 10000, 5, 1));
-    assert!(matches!(duplicate, Err(OrderAcceptError::DuplicateClientOrderId { .. })));
+    assert!(matches!(
+        duplicate,
+        Err(OrderAcceptError::DuplicateClientOrderId { .. })
+    ));
 
     let next = engine
         .accept_order(&packet(8, 42, instrument, 1, 10000, 10, 0))
@@ -104,9 +107,15 @@ fn client_timestamps_never_change_fifo_priority() {
     assert_eq!(engine.process_order(buy.pool_index), 2);
 
     assert_eq!(engine.trades[0].seller, 1);
-    assert_eq!(engine.trades[0].seller_sequence_number, first.sequence_number.0);
+    assert_eq!(
+        engine.trades[0].seller_sequence_number,
+        first.sequence_number.0
+    );
     assert_eq!(engine.trades[1].seller, 2);
-    assert_eq!(engine.trades[1].seller_sequence_number, second.sequence_number.0);
+    assert_eq!(
+        engine.trades[1].seller_sequence_number,
+        second.sequence_number.0
+    );
 }
 
 #[test]

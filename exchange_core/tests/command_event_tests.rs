@@ -1,6 +1,6 @@
 use exchange_core::{
-    CancelOrder, ClientOrderId, ExchangeEvent, MatchingEngine, NewOrder, OrderCommand,
-    OrderSide, ReplaceOrder, SequenceNumber,
+    CancelOrder, ClientOrderId, ExchangeEvent, MatchingEngine, NewOrder, OrderCommand, OrderSide,
+    ReplaceOrder, SequenceNumber,
 };
 
 fn new_order(id: u64, account: u32, price: u32) -> OrderCommand {

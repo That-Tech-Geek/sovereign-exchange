@@ -25,7 +25,9 @@ fn packet(
 }
 
 fn submit(engine: &mut MatchingEngine, packet: &OrderPacket) -> u64 {
-    let accepted = engine.accept_order(packet).expect("packet must be accepted");
+    let accepted = engine
+        .accept_order(packet)
+        .expect("packet must be accepted");
     engine.process_order(accepted.pool_index);
     accepted.exchange_order_id.0
 }
@@ -46,11 +48,16 @@ fn test_order_packet_size_and_client_identity() {
 fn test_pool_stores_distinct_client_and_exchange_ids() {
     let mut pool = OrderPool::new();
     let packet = packet(42, 7, 0, 0, 10000, 10, 123);
-    let idx = pool.allocate_from_packet(&packet, ExchangeOrderId(9001)).unwrap();
+    let idx = pool
+        .allocate_from_packet(&packet, ExchangeOrderId(9001))
+        .unwrap();
 
     assert_eq!(pool.get(idx).client_order_id, 42);
     assert_eq!(pool.get(idx).exchange_order_id, 9001);
-    assert_ne!(pool.get(idx).client_order_id, pool.get(idx).exchange_order_id);
+    assert_ne!(
+        pool.get(idx).client_order_id,
+        pool.get(idx).exchange_order_id
+    );
 
     pool.deallocate(idx);
     assert_eq!(pool.allocated_count, 0);
@@ -142,9 +149,15 @@ fn test_same_client_order_id_is_independent_across_accounts_and_instruments() {
     let usa = spot_instrument_id(0);
     let germany = spot_instrument_id(1);
 
-    assert!(engine.accept_order(&packet(55, 1, usa, 1, 10000, 10, 1)).is_ok());
-    assert!(engine.accept_order(&packet(55, 2, usa, 1, 10000, 10, 2)).is_ok());
-    assert!(engine.accept_order(&packet(55, 1, germany, 1, 10000, 10, 3)).is_ok());
+    assert!(engine
+        .accept_order(&packet(55, 1, usa, 1, 10000, 10, 1))
+        .is_ok());
+    assert!(engine
+        .accept_order(&packet(55, 2, usa, 1, 10000, 10, 2))
+        .is_ok());
+    assert!(engine
+        .accept_order(&packet(55, 1, germany, 1, 10000, 10, 3))
+        .is_ok());
 }
 
 #[test]
@@ -178,8 +191,22 @@ fn test_spot_and_future_have_independent_books() {
     assert_eq!(engine.trades[0].seller, 101);
     assert_eq!(engine.trades[0].seller_client_order_id, 1);
 
-    assert_eq!(engine.book(spot).unwrap().best_ask_head().map(|i| engine.pool.get(i).remaining), Some(50));
-    assert_eq!(engine.book(future).unwrap().best_ask_head().map(|i| engine.pool.get(i).remaining), Some(100));
+    assert_eq!(
+        engine
+            .book(spot)
+            .unwrap()
+            .best_ask_head()
+            .map(|i| engine.pool.get(i).remaining),
+        Some(50)
+    );
+    assert_eq!(
+        engine
+            .book(future)
+            .unwrap()
+            .best_ask_head()
+            .map(|i| engine.pool.get(i).remaining),
+        Some(100)
+    );
 }
 
 #[test]
@@ -228,7 +255,10 @@ fn test_basic_limit_matching_and_fifo() {
     let mut engine = MatchingEngine::new();
     let instrument = spot_instrument_id(0);
 
-    submit(&mut engine, &packet(1, 101, instrument, 1, 10000, 100, 1000));
+    submit(
+        &mut engine,
+        &packet(1, 101, instrument, 1, 10000, 100, 1000),
+    );
 
     let buy = engine
         .accept_order(&packet(2, 202, instrument, 0, 10000, 50, 1001))
@@ -249,7 +279,10 @@ fn test_strict_fifo_price_time_priority() {
     let instrument = spot_instrument_id(1);
 
     for &(id, qty, acc, timestamp) in &[(1u64, 10u32, 1u32, 100u64), (2, 20, 2, 101)] {
-        submit(&mut engine, &packet(id, acc, instrument, 1, 10000, qty, timestamp));
+        submit(
+            &mut engine,
+            &packet(id, acc, instrument, 1, 10000, qty, timestamp),
+        );
     }
 
     let buy = engine
@@ -309,7 +342,10 @@ fn test_invalid_instrument_is_rejected_without_mutating_any_book() {
     let result = engine.accept_order(&packet(999, 1, invalid, 1, 10000, 100, 1));
     assert_eq!(result, Err(OrderAcceptError::InvalidInstrument(invalid)));
     assert_eq!(engine.pool.allocated_count, 0);
-    assert!(engine.books.iter().all(|book| book.bids.is_empty() && book.asks.is_empty()));
+    assert!(engine
+        .books
+        .iter()
+        .all(|book| book.bids.is_empty() && book.asks.is_empty()));
 }
 
 #[test]

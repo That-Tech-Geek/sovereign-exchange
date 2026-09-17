@@ -49,7 +49,11 @@ impl OrderPool {
             data[i].next = (i + 1) as u32;
         }
         data[MAX_ORDERS - 1].next = u32::MAX;
-        Self { data, free_head: 1, allocated_count: 0 }
+        Self {
+            data,
+            free_head: 1,
+            allocated_count: 0,
+        }
     }
 
     #[inline(always)]

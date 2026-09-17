@@ -1,5 +1,5 @@
-use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use crate::constants::RING_BUFFER_SIZE;
+use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 
 /// Bounded non-blocking order ingress queue.
 ///

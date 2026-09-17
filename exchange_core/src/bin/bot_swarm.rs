@@ -82,7 +82,11 @@ impl TradingBot {
             }
             BotArchetype::SovereignArbitrage => {
                 let is_buy = (self.bot_id % 2) == 0;
-                let prc = if is_buy { fair_price - 2 } else { fair_price + 2 };
+                let prc = if is_buy {
+                    fair_price - 2
+                } else {
+                    fair_price + 2
+                };
                 (if is_buy { 0 } else { 1 }, prc, 75)
             }
             BotArchetype::NoiseTrader => {
@@ -159,10 +163,16 @@ fn main() {
         let bot = &mut bots[i];
         let ticker = &TICKERS[bot.preferred_ticker as usize];
         let pkt = bot.generate_order(i as u64, ticker.base_price_cents);
-        let accepted = engine.accept_order(&pkt).expect("seed order must be accepted");
+        let accepted = engine
+            .accept_order(&pkt)
+            .expect("seed order must be accepted");
         engine.process_order(accepted.pool_index);
     }
-    println!("✅ Pre-seeded {} limit orders in {:.2?}", mm_count, seed_start.elapsed());
+    println!(
+        "✅ Pre-seeded {} limit orders in {:.2?}",
+        mm_count,
+        seed_start.elapsed()
+    );
 
     println!("\n🔥 Launching 10k Bot Swarm Execution Wave (50,000 orders)...");
     let execution_start = Instant::now();
@@ -176,7 +186,9 @@ fn main() {
             let pkt = bot.generate_order(seq, ticker.base_price_cents);
 
             let t0 = Instant::now();
-            let accepted = engine.accept_order(&pkt).expect("swarm order must be accepted");
+            let accepted = engine
+                .accept_order(&pkt)
+                .expect("swarm order must be accepted");
             let trades = engine.process_order(accepted.pool_index);
             let nanos = t0.elapsed().as_nanos() as u64;
             metrics.record_order_latency(nanos, trades);
@@ -196,17 +208,33 @@ fn main() {
     println!("   ├── Total Orders Ingested:   {}", total_orders);
     println!("   ├── Total Trades Executed:   {}", total_trades);
     println!("   ├── Elapsed Wall Time:       {:.2?}", elapsed);
-    println!("   ├── Swarm Ingestion Rate:    {} orders/sec", orders_per_sec);
+    println!(
+        "   ├── Swarm Ingestion Rate:    {} orders/sec",
+        orders_per_sec
+    );
     println!("   ├── Mean E[S] Service Time:  {:.3} µs", avg_latency);
     println!("   ├── Minimum Single Latency:  {} ns", min_latency);
-    println!("   ├── Maximum Tail Latency:    {} ns ({:.2} µs)", max_latency, max_latency as f64 / 1000.0);
-    println!("   └── Pool Slots Allocated:    {} / 5,000,000", engine.pool.allocated_count);
+    println!(
+        "   ├── Maximum Tail Latency:    {} ns ({:.2} µs)",
+        max_latency,
+        max_latency as f64 / 1000.0
+    );
+    println!(
+        "   └── Pool Slots Allocated:    {} / 5,000,000",
+        engine.pool.allocated_count
+    );
 
     if avg_latency < 5.0 {
         println!("\n✅ PASS: Latency target of < 5.0 µs achieved with 10k Bot Swarm!");
     } else {
-        println!("\n⚠️ Target: Latency exceeded 5.0 µs ({:.3} µs)", avg_latency);
+        println!(
+            "\n⚠️ Target: Latency exceeded 5.0 µs ({:.3} µs)",
+            avg_latency
+        );
     }
 
-    println!("\n💡 Single-code execution complete. All {} bots successfully coordinated.", num_bots);
+    println!(
+        "\n💡 Single-code execution complete. All {} bots successfully coordinated.",
+        num_bots
+    );
 }
