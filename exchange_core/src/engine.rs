@@ -109,8 +109,6 @@ impl MatchingEngine {
         let client_order_id = packet.client_order_id();
         let book = &self.books[packet.instrument_id as usize];
 
-        // Cancellation targets an existing client order and therefore does not
-        // participate in duplicate-order admission.
         if packet.side != 2 && book.contains_order(packet.account_id, client_order_id) {
             return Err(OrderAcceptError::DuplicateClientOrderId {
                 instrument_id: packet.instrument_id,
@@ -136,9 +134,11 @@ impl MatchingEngine {
         };
 
         self.next_sequence_number = next_sequence;
-        let pool_index = self
-            .pool
-            .allocate_from_packet(packet, exchange_order_id, SequenceNumber(sequence_number));
+        let pool_index = self.pool.allocate_from_packet_with_sequence(
+            packet,
+            exchange_order_id,
+            SequenceNumber(sequence_number),
+        );
 
         Ok(AcceptedOrder {
             pool_index,
@@ -198,9 +198,6 @@ impl MatchingEngine {
         *trade_count
     }
 
-    /// Cancel by the client identity within one instrument. Exchange order IDs
-    /// are deliberately not accepted here: clients must not be able to cancel
-    /// another account's order merely by learning its exchange ID.
     #[inline(always)]
     pub fn cancel_order(
         &mut self,
