@@ -46,7 +46,7 @@ fn test_order_packet_size_and_client_identity() {
 fn test_pool_stores_distinct_client_and_exchange_ids() {
     let mut pool = OrderPool::new();
     let packet = packet(42, 7, 0, 0, 10000, 10, 123);
-    let idx = pool.allocate_from_packet(&packet, ExchangeOrderId(9001));
+    let idx = pool.allocate_from_packet(&packet, ExchangeOrderId(9001)).unwrap();
 
     assert_eq!(pool.get(idx).client_order_id, 42);
     assert_eq!(pool.get(idx).exchange_order_id, 9001);
@@ -61,15 +61,15 @@ fn test_pool_allocation_and_free_list() {
     let mut pool = OrderPool::new();
     assert_eq!(pool.allocated_count, 0);
 
-    let idx1 = pool.allocate();
-    let idx2 = pool.allocate();
+    let idx1 = pool.allocate().unwrap();
+    let idx2 = pool.allocate().unwrap();
     assert_ne!(idx1, idx2);
     assert_eq!(pool.allocated_count, 2);
 
     pool.deallocate(idx1);
     assert_eq!(pool.allocated_count, 1);
 
-    let idx3 = pool.allocate();
+    let idx3 = pool.allocate().unwrap();
     assert_eq!(idx3, idx1);
     assert_eq!(pool.allocated_count, 2);
 }
