@@ -92,8 +92,10 @@ fn main() {
         };
 
         let t0 = Instant::now();
-        let idx = engine.pool.allocate_from_packet(&packet);
-        let count = engine.process_order(idx);
+        let accepted = engine
+            .accept_order(&packet)
+            .expect("warmup packet must be accepted");
+        let count = engine.process_order(accepted.pool_index);
         let elapsed_nanos = t0.elapsed().as_nanos() as u64;
         metrics.record_order_latency(elapsed_nanos, count);
 
@@ -122,11 +124,20 @@ fn main() {
         timestamp: 123456,
         _pad: 0,
     };
-    let test_idx = engine.pool.allocate_from_packet(&cancel_packet);
-    engine.process_order(test_idx);
-    let cancel_success = engine.cancel_order(0, cancel_test_id);
+    let accepted = engine
+        .accept_order(&cancel_packet)
+        .expect("cancellation test order must be accepted");
+    engine.process_order(accepted.pool_index);
+    let cancel_success = engine.cancel_order(
+        0,
+        999,
+        order::ClientOrderId(cancel_test_id),
+    );
     assert!(cancel_success, "Cancellation must succeed for resting order");
-    println!("✅ Instrument-scoped order cancellation verified (Order ID: {})", cancel_test_id);
+    println!(
+        "✅ Instrument/account-scoped order cancellation verified (Client Order ID: {}, Exchange Order ID: {})",
+        cancel_test_id, accepted.exchange_order_id.0
+    );
 
     println!("⚡ Matching engine active and listening on ring buffer...");
     println!("   Press Ctrl+C to terminate or submit orders via ring buffer.");
