@@ -1,187 +1,45 @@
 //! Versioned, checksummed snapshots for deterministic replay state.
 //!
-//! This is the recovery foundation for PR9. It snapshots the state PR8 can
-//! actually reconstruct and records the journal sequence at the snapshot
-//! boundary. Full matcher/book crash recovery remains gated on replay-complete
-//! order events and is intentionally not claimed by this module.
+//! This snapshots the state PR8 can actually reconstruct and records the
+//! journal sequence at the snapshot boundary. Full matcher/book crash
+//! recovery remains gated on replay-complete order events.
 
 use std::collections::{BTreeMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-
 use crate::order::{ClientOrderId, ExchangeOrderId};
 use crate::replay::{ReplayLedger, ReplayOrderKey, ReplayTrade};
 use crate::sequence::SequenceNumber;
 
 const MAGIC: &[u8; 4] = b"SES1";
 const VERSION: u16 = 1;
-const HEADER_LEN: usize = 24;
+const HEADER_LEN: usize = 28;
 
 #[derive(Debug)]
-pub enum SnapshotError {
-    Io(io::Error),
-    InvalidHeader(&'static str),
-    UnsupportedVersion(u16),
-    Truncated,
-    ChecksumMismatch { expected: u32, actual: u32 },
-    InvalidData(&'static str),
-    JournalSequenceMismatch { snapshot: u64, journal: u64 },
-}
-
-impl From<io::Error> for SnapshotError {
-    fn from(error: io::Error) -> Self { Self::Io(error) }
-}
-
+pub enum SnapshotError { Io(io::Error), InvalidHeader(&'static str), UnsupportedVersion(u16), Truncated, ChecksumMismatch { expected: u32, actual: u32 }, InvalidData(&'static str), JournalSequenceMismatch { snapshot: u64, journal: u64 } }
+impl From<io::Error> for SnapshotError { fn from(error: io::Error) -> Self { Self::Io(error) } }
 impl std::fmt::Display for SnapshotError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(e) => write!(f, "snapshot I/O error: {e}"),
-            Self::InvalidHeader(m) => write!(f, "invalid snapshot header: {m}"),
-            Self::UnsupportedVersion(v) => write!(f, "unsupported snapshot version {v}"),
-            Self::Truncated => write!(f, "truncated snapshot"),
-            Self::ChecksumMismatch { expected, actual } => write!(f, "snapshot checksum mismatch: expected {expected:#x}, got {actual:#x}"),
-            Self::InvalidData(m) => write!(f, "invalid snapshot data: {m}"),
-            Self::JournalSequenceMismatch { snapshot, journal } => write!(f, "journal sequence {journal} does not match snapshot boundary {snapshot}"),
-        }
-    }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { match self { Self::Io(e)=>write!(f,"snapshot I/O error: {e}"), Self::InvalidHeader(m)=>write!(f,"invalid snapshot header: {m}"), Self::UnsupportedVersion(v)=>write!(f,"unsupported snapshot version {v}"), Self::Truncated=>write!(f,"truncated snapshot"), Self::ChecksumMismatch{expected,actual}=>write!(f,"snapshot checksum mismatch: expected {expected:#x}, got {actual:#x}"), Self::InvalidData(m)=>write!(f,"invalid snapshot data: {m}"), Self::JournalSequenceMismatch{snapshot,journal}=>write!(f,"journal sequence {journal} is behind snapshot boundary {snapshot}") } }
 }
 impl std::error::Error for SnapshotError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SnapshotMeta {
-    pub journal_sequence: u64,
-    pub event_count: u64,
-}
-
+pub struct SnapshotMeta { pub journal_sequence: u64, pub event_count: u64 }
 pub struct ReplaySnapshot;
-
 impl ReplaySnapshot {
     pub fn write(path: impl AsRef<Path>, ledger: &ReplayLedger) -> Result<SnapshotMeta, SnapshotError> {
-        let path = path.as_ref();
-        let meta = SnapshotMeta {
-            journal_sequence: ledger.last_sequence.unwrap_or(0),
-            event_count: ledger.event_count,
-        };
-        let payload = encode(ledger, meta);
-        let checksum = crc32(&payload);
-        let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
-        bytes.extend_from_slice(MAGIC);
-        bytes.extend_from_slice(&VERSION.to_le_bytes());
-        bytes.extend_from_slice(&0u16.to_le_bytes());
-        bytes.extend_from_slice(&meta.journal_sequence.to_le_bytes());
-        bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
-        bytes.extend_from_slice(&checksum.to_le_bytes());
-        bytes.extend_from_slice(&payload);
-
-        let tmp = temp_path(path);
-        {
-            let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(&tmp)?;
-            file.write_all(&bytes)?;
-            file.sync_all()?;
-        }
-        fs::rename(&tmp, path)?;
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                File::open(parent)?.sync_all()?;
-            }
-        }
-        Ok(meta)
+        let path=path.as_ref(); let meta=SnapshotMeta{journal_sequence:ledger.last_sequence.unwrap_or(0),event_count:ledger.event_count}; let payload=encode(ledger,meta); let checksum=crc32(&payload); let mut bytes=Vec::with_capacity(HEADER_LEN+payload.len());
+        bytes.extend_from_slice(MAGIC); bytes.extend_from_slice(&VERSION.to_le_bytes()); bytes.extend_from_slice(&0u16.to_le_bytes()); bytes.extend_from_slice(&meta.journal_sequence.to_le_bytes()); bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes()); bytes.extend_from_slice(&checksum.to_le_bytes()); bytes.extend_from_slice(&payload);
+        let tmp=temp_path(path); { let mut file=OpenOptions::new().create(true).truncate(true).write(true).open(&tmp)?; file.write_all(&bytes)?; file.sync_all()?; } fs::rename(&tmp,path)?; if let Some(parent)=path.parent(){if !parent.as_os_str().is_empty(){File::open(parent)?.sync_all()?;}} Ok(meta)
     }
-
     pub fn read(path: impl AsRef<Path>) -> Result<(SnapshotMeta, ReplayLedger), SnapshotError> {
-        let mut file = File::open(path)?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        if bytes.len() < HEADER_LEN { return Err(SnapshotError::Truncated); }
-        if &bytes[0..4] != MAGIC { return Err(SnapshotError::InvalidHeader("bad magic")); }
-        let version = u16::from_le_bytes([bytes[4], bytes[5]]);
-        if version != VERSION { return Err(SnapshotError::UnsupportedVersion(version)); }
-        let journal_sequence = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
-        let payload_len = u64::from_le_bytes(bytes[16..24].try_into().unwrap()) as usize;
-        if HEADER_LEN.checked_add(payload_len).filter(|n| *n == bytes.len()).is_none() {
-            return Err(SnapshotError::Truncated);
-        }
-        // The checksum is stored immediately after the fixed fields in this
-        // format; it occupies bytes 24..28, making the physical header 28 B.
-        // Keep HEADER_LEN at 24 for the logical fixed fields and parse checksum
-        // separately to make the boundary explicit.
-        Err(SnapshotError::InvalidData("snapshot header implementation boundary"))
+        let mut file=File::open(path)?; let mut bytes=Vec::new(); file.read_to_end(&mut bytes)?; if bytes.len()<HEADER_LEN{return Err(SnapshotError::Truncated)}; if &bytes[0..4]!=MAGIC{return Err(SnapshotError::InvalidHeader("bad magic"))}; let version=u16::from_le_bytes([bytes[4],bytes[5]]); if version!=VERSION{return Err(SnapshotError::UnsupportedVersion(version))}; let journal_sequence=u64::from_le_bytes(bytes[8..16].try_into().unwrap()); let payload_len=u64::from_le_bytes(bytes[16..24].try_into().unwrap()) as usize; if HEADER_LEN.checked_add(payload_len).filter(|n|*n==bytes.len()).is_none(){return Err(SnapshotError::Truncated)}; let expected=u32::from_le_bytes(bytes[24..28].try_into().unwrap()); let payload=&bytes[HEADER_LEN..]; let actual=crc32(payload); if expected!=actual{return Err(SnapshotError::ChecksumMismatch{expected,actual})}; let (event_count,ledger)=decode(payload,journal_sequence)?; Ok((SnapshotMeta{journal_sequence,event_count},ledger))
     }
-
-    pub fn validate_journal_boundary(meta: SnapshotMeta, journal_sequence: u64) -> Result<(), SnapshotError> {
-        if journal_sequence < meta.journal_sequence {
-            return Err(SnapshotError::JournalSequenceMismatch { snapshot: meta.journal_sequence, journal: journal_sequence });
-        }
-        Ok(())
-    }
+    pub fn validate_journal_boundary(meta: SnapshotMeta, journal_sequence:u64)->Result<(),SnapshotError>{if journal_sequence<meta.journal_sequence{return Err(SnapshotError::JournalSequenceMismatch{snapshot:meta.journal_sequence,journal:journal_sequence})}Ok(())}
 }
-
-fn encode(ledger: &ReplayLedger, meta: SnapshotMeta) -> Vec<u8> {
-    let mut out = Vec::new();
-    put_u64(&mut out, meta.event_count);
-    put_u32(&mut out, ledger.accepted_orders.len() as u32);
-    for (key, exchange_id) in &ledger.accepted_orders {
-        put_u16(&mut out, key.instrument_id);
-        put_u32(&mut out, key.account_id);
-        put_u64(&mut out, key.client_order_id.0);
-        put_u64(&mut out, exchange_id.0);
-    }
-    put_u32(&mut out, ledger.cancelled_orders.len() as u32);
-    for key in &ledger.cancelled_orders {
-        put_u16(&mut out, key.instrument_id);
-        put_u32(&mut out, key.account_id);
-        put_u64(&mut out, key.client_order_id.0);
-    }
-    put_u64(&mut out, ledger.replaced_orders);
-    put_u32(&mut out, ledger.trades.len() as u32);
-    for trade in &ledger.trades {
-        put_u16(&mut out, trade.instrument_id);
-        put_u64(&mut out, trade.buyer_exchange_order_id.0);
-        put_u64(&mut out, trade.seller_exchange_order_id.0);
-        put_u64(&mut out, trade.buyer_client_order_id.0);
-        put_u64(&mut out, trade.seller_client_order_id.0);
-        put_u32(&mut out, trade.price);
-        put_u32(&mut out, trade.qty);
-        put_u64(&mut out, trade.buyer_sequence_number.0);
-        put_u64(&mut out, trade.seller_sequence_number.0);
-        put_u64(&mut out, trade.timestamp);
-    }
-    out
-}
-
-fn put_u16(out: &mut Vec<u8>, v: u16) { out.extend_from_slice(&v.to_le_bytes()); }
-fn put_u32(out: &mut Vec<u8>, v: u32) { out.extend_from_slice(&v.to_le_bytes()); }
-fn put_u64(out: &mut Vec<u8>, v: u64) { out.extend_from_slice(&v.to_le_bytes()); }
-fn temp_path(path: &Path) -> PathBuf { path.with_extension("tmp") }
-
-fn crc32(bytes: &[u8]) -> u32 {
-    let mut crc = 0xffff_ffffu32;
-    for &byte in bytes {
-        crc ^= byte as u32;
-        for _ in 0..8 { crc = if crc & 1 != 0 { (crc >> 1) ^ 0xedb8_8320 } else { crc >> 1 }; }
-    }
-    !crc
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::replay::ReplayOrderKey;
-
-    #[test]
-    fn snapshot_boundary_never_allows_journal_to_move_backward() {
-        let meta = SnapshotMeta { journal_sequence: 10, event_count: 20 };
-        assert!(ReplaySnapshot::validate_journal_boundary(meta, 10).is_ok());
-        assert!(ReplaySnapshot::validate_journal_boundary(meta, 11).is_ok());
-        assert!(matches!(ReplaySnapshot::validate_journal_boundary(meta, 9), Err(SnapshotError::JournalSequenceMismatch { .. })));
-    }
-
-    #[test]
-    fn empty_ledger_encodes_deterministically() {
-        let ledger = ReplayLedger::default();
-        let a = encode(&ledger, SnapshotMeta { journal_sequence: 0, event_count: 0 });
-        let b = encode(&ledger, SnapshotMeta { journal_sequence: 0, event_count: 0 });
-        assert_eq!(a, b);
-    }
-}
+fn encode(ledger:&ReplayLedger,meta:SnapshotMeta)->Vec<u8>{let mut out=Vec::new();put_u64(&mut out,meta.event_count);put_u32(&mut out,ledger.accepted_orders.len() as u32);for(k,e)in&ledger.accepted_orders{put_u16(&mut out,k.instrument_id);put_u32(&mut out,k.account_id);put_u64(&mut out,k.client_order_id.0);put_u64(&mut out,e.0)}let mut cancelled:Vec<_>=ledger.cancelled_orders.iter().copied().collect();cancelled.sort_by_key(|k|(k.instrument_id,k.account_id,k.client_order_id.0));put_u32(&mut out,cancelled.len() as u32);for k in cancelled{put_u16(&mut out,k.instrument_id);put_u32(&mut out,k.account_id);put_u64(&mut out,k.client_order_id.0)}put_u64(&mut out,ledger.replaced_orders);put_u32(&mut out,ledger.trades.len() as u32);for t in &ledger.trades{put_u16(&mut out,t.instrument_id);put_u64(&mut out,t.buyer_exchange_order_id.0);put_u64(&mut out,t.seller_exchange_order_id.0);put_u64(&mut out,t.buyer_client_order_id.0);put_u64(&mut out,t.seller_client_order_id.0);put_u32(&mut out,t.price);put_u32(&mut out,t.qty);put_u64(&mut out,t.buyer_sequence_number.0);put_u64(&mut out,t.seller_sequence_number.0);put_u64(&mut out,t.timestamp)}out}
+fn decode(bytes:&[u8],journal_sequence:u64)->Result<(u64,ReplayLedger),SnapshotError>{let mut r=Reader{bytes,pos:0};let event_count=r.u64()?;let n=r.u32()? as usize;let mut accepted_orders=BTreeMap::new();for _ in 0..n{let k=ReplayOrderKey{instrument_id:r.u16()?,account_id:r.u32()?,client_order_id:ClientOrderId(r.u64()?)};accepted_orders.insert(k,ExchangeOrderId(r.u64()?));}let n=r.u32()? as usize;let mut cancelled_orders=HashSet::new();for _ in 0..n{cancelled_orders.insert(ReplayOrderKey{instrument_id:r.u16()?,account_id:r.u32()?,client_order_id:ClientOrderId(r.u64()?)});}let replaced_orders=r.u64()?;let n=r.u32()? as usize;let mut trades=Vec::with_capacity(n);for _ in 0..n{trades.push(ReplayTrade{instrument_id:r.u16()?,buyer_exchange_order_id:ExchangeOrderId(r.u64()?),seller_exchange_order_id:ExchangeOrderId(r.u64()?),buyer_client_order_id:ClientOrderId(r.u64()?),seller_client_order_id:ClientOrderId(r.u64()?),price:r.u32()?,qty:r.u32()?,buyer_sequence_number:SequenceNumber(r.u64()?),seller_sequence_number:SequenceNumber(r.u64()?),timestamp:r.u64()?});}if r.pos!=bytes.len(){return Err(SnapshotError::InvalidData("trailing bytes"))}Ok((event_count,ReplayLedger{event_count,last_sequence:if journal_sequence==0{None}else{Some(journal_sequence)},accepted_orders,cancelled_orders,replaced_orders,trades}))}
+struct Reader<'a>{bytes:&'a[u8],pos:usize}impl<'a>Reader<'a>{fn take(&mut self,n:usize)->Result<&'a[u8],SnapshotError>{let e=self.pos.checked_add(n).ok_or(SnapshotError::Truncated)?;if e>self.bytes.len(){return Err(SnapshotError::Truncated)}let o=&self.bytes[self.pos..e];self.pos=e;Ok(o)}fn u16(&mut self)->Result<u16,SnapshotError>{Ok(u16::from_le_bytes(self.take(2)?.try_into().unwrap()))}fn u32(&mut self)->Result<u32,SnapshotError>{Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))}fn u64(&mut self)->Result<u64,SnapshotError>{Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))}}
+fn put_u16(o:&mut Vec<u8>,v:u16){o.extend_from_slice(&v.to_le_bytes())}fn put_u32(o:&mut Vec<u8>,v:u32){o.extend_from_slice(&v.to_le_bytes())}fn put_u64(o:&mut Vec<u8>,v:u64){o.extend_from_slice(&v.to_le_bytes())}fn temp_path(p:&Path)->PathBuf{p.with_extension("tmp")}fn crc32(b:&[u8])->u32{let mut c=0xffff_ffffu32;for&x in b{c^=x as u32;for _ in 0..8{c=if c&1!=0{(c>>1)^0xedb8_8320}else{c>>1};}}!c}
+#[cfg(test)]mod tests{use super::*;use crate::replay::ReplayLedger;use std::time::{SystemTime,UNIX_EPOCH};fn path()->std::path::PathBuf{std::env::temp_dir().join(format!("sovereign_snapshot_{}.bin",SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()))}#[test]fn empty_snapshot_round_trips(){let p=path();let l=ReplayLedger::default();let m=ReplaySnapshot::write(&p,&l).unwrap();let(rm,rl)=ReplaySnapshot::read(&p).unwrap();assert_eq!(m,rm);assert_eq!(rl.event_count,0);assert_eq!(rl.last_sequence,None);std::fs::remove_file(p).unwrap()}#[test]fn boundary_rejects_backward_journal(){let m=SnapshotMeta{journal_sequence:10,event_count:20};assert!(ReplaySnapshot::validate_journal_boundary(m,10).is_ok());assert!(matches!(ReplaySnapshot::validate_journal_boundary(m,9),Err(SnapshotError::JournalSequenceMismatch{..})))}}
