@@ -146,11 +146,7 @@ impl MarketDataPublisher {
     }
 }
 
-pub fn full_depth_snapshot(
-    instrument_id: u16,
-    sequence: u64,
-    book: &OrderBook,
-) -> DepthSnapshot {
+pub fn full_depth_snapshot(instrument_id: u16, sequence: u64, book: &OrderBook) -> DepthSnapshot {
     let bids = book
         .bids
         .iter()
