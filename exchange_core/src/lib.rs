@@ -9,6 +9,7 @@ pub mod health;
 pub mod instrument;
 pub mod journal;
 pub mod lifecycle;
+pub mod market_data;
 pub mod metrics;
 pub mod order;
 pub mod pool;
@@ -38,6 +39,10 @@ pub use instrument::{
 };
 pub use journal::{Durability, EventJournal, JournalError, JournalPosition};
 pub use lifecycle::{LifecycleError, LifecycleTransition, MarketLifecycle, TradingSession};
+pub use market_data::{
+    full_depth_snapshot, DepthLevel, DepthSnapshot, MarketDataError, MarketDataEvent,
+    MarketDataPublisher,
+};
 pub use metrics::PerformanceMetrics;
 pub use order::{ClientOrderId, ExchangeOrderId, OrderKey, OrderPacket};
 pub use pool::{CommandKind, Order, OrderPool, PoolError};
