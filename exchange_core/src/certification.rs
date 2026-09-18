@@ -1,4 +1,6 @@
 use crate::command::{NewOrder, OrderCommand, OrderSide};
+use crate::constants::MAX_INSTRUMENTS;
+use crate::instrument::{future_instrument_id, spot_instrument_id, SOVEREIGNS};
 use crate::consensus::{NodeId, RaftNode, Term, VoteResponse};
 use crate::engine::MatchingEngine;
 use crate::ledger::{
@@ -219,8 +221,6 @@ fn protocol_integrity_check() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::MAX_INSTRUMENTS;
-    use crate::instrument::{future_instrument_id, spot_instrument_id, SOVEREIGNS};
 
     #[test]
     fn certification_smoke_passes() {
