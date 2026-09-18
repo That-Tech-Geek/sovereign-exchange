@@ -1,0 +1,21 @@
+name: Recovery Chaos Drills
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: exchange_core
+      - name: Run recovery and corruption drills
+        working-directory: exchange_core
+        run: cargo test --release chaos_recovery -- --nocapture
