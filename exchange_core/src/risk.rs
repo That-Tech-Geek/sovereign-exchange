@@ -106,6 +106,17 @@ pub struct Reservation {
     pub reserved_value: i128,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RiskFill {
+    pub buyer_account: u32,
+    pub seller_account: u32,
+    pub instrument_id: u16,
+    pub buyer_client_order_id: u64,
+    pub seller_client_order_id: u64,
+    pub price: u32,
+    pub quantity: u32,
+}
+
 #[derive(Debug, Default)]
 pub struct RiskEngine {
     accounts: BTreeMap<u32, Account>,
@@ -342,16 +353,14 @@ impl RiskEngine {
         Ok(reservation)
     }
 
-    pub fn apply_fill(
-        &mut self,
-        buyer_account: u32,
-        seller_account: u32,
-        instrument_id: u16,
-        buyer_client_order_id: u64,
-        seller_client_order_id: u64,
-        price: u32,
-        quantity: u32,
-    ) -> Result<(), RiskError> {
+    pub fn apply_fill(&mut self, fill: RiskFill) -> Result<(), RiskError> {
+        let buyer_account = fill.buyer_account;
+        let seller_account = fill.seller_account;
+        let instrument_id = fill.instrument_id;
+        let buyer_client_order_id = fill.buyer_client_order_id;
+        let seller_client_order_id = fill.seller_client_order_id;
+        let price = fill.price;
+        let quantity = fill.quantity;
         if price == 0 {
             return Err(RiskError::InvalidPrice);
         }
@@ -573,7 +582,16 @@ mod tests {
         risk.admit(&new_order(2, 2, OrderSide::Sell, 100, 50))
             .unwrap();
 
-        risk.apply_fill(1, 2, 0, 1, 2, 100, 50).unwrap();
+        risk.apply_fill(RiskFill {
+            buyer_account: 1,
+            seller_account: 2,
+            instrument_id: 0,
+            buyer_client_order_id: 1,
+            seller_client_order_id: 2,
+            price: 100,
+            quantity: 50,
+        })
+        .unwrap();
 
         assert_eq!(risk.account(1).unwrap().cash, 5000);
         assert_eq!(risk.account(1).unwrap().position(0), 50);

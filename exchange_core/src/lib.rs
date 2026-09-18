@@ -9,6 +9,7 @@ pub mod engine;
 pub mod health;
 pub mod instrument;
 pub mod journal;
+pub mod ledger;
 pub mod lifecycle;
 pub mod market_data;
 pub mod metrics;
@@ -46,6 +47,10 @@ pub use instrument::{
     MarketType, SovereignDefinition, SOVEREIGNS,
 };
 pub use journal::{Durability, EventJournal, JournalError, JournalPosition};
+pub use ledger::{
+    AssetId, DoubleEntryLedger, FeeRole, FeeSchedule, LedgerEntry, LedgerError, LedgerKind,
+    SettlementEngine, SettlementRecord, SettlementState, TradeId, TradeSettlement, Transfer,
+};
 pub use lifecycle::{LifecycleError, LifecycleTransition, MarketLifecycle, TradingSession};
 pub use market_data::{
     full_depth_snapshot, DepthLevel, DepthSnapshot, MarketDataError, MarketDataEvent,
