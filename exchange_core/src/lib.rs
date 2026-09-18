@@ -1,8 +1,8 @@
 #![allow(dead_code, unused_imports)]
 
 pub mod book;
-pub mod command;
 pub mod certification;
+pub mod command;
 pub mod command_journal;
 pub mod consensus;
 pub mod constants;
