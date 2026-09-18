@@ -24,11 +24,7 @@ pub struct Sequencer {
 impl Sequencer {
     pub fn new(capacity: usize, generation: Generation) -> Self {
         let (tx, rx) = bounded(capacity);
-        Self {
-            tx,
-            rx,
-            generation,
-        }
+        Self { tx, rx, generation }
     }
 
     pub fn generation(&self) -> Generation {
