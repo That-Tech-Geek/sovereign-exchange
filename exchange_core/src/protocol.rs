@@ -509,15 +509,21 @@ fn decode_message(message_type: MessageType, bytes: &[u8]) -> Result<WireMessage
             heartbeat_ticks: cursor.u64()?,
         }),
         MessageType::NewOrder => {
+            let client_order_id = ClientOrderId(cursor.u64()?);
+            let account_id = cursor.u32()?;
+            let instrument_id = cursor.u16()?;
             let side = decode_side(cursor.u8()?)?;
+            let price = cursor.u32()?;
+            let quantity = cursor.u32()?;
+            let client_timestamp = cursor.u64()?;
             Ok(WireMessage::Order(OrderCommand::New(NewOrder {
-                client_order_id: ClientOrderId(cursor.u64_at(0)?),
-                account_id: cursor.u32_at(8)?,
-                instrument_id: cursor.u16_at(12)?,
+                client_order_id,
+                account_id,
+                instrument_id,
                 side,
-                price: cursor.u32_at(13)?,
-                quantity: cursor.u32_at(17)?,
-                client_timestamp: cursor.u64_at(21)?,
+                price,
+                quantity,
+                client_timestamp,
             })))
         }
         MessageType::CancelOrder => Ok(WireMessage::Order(OrderCommand::Cancel(CancelOrder {
