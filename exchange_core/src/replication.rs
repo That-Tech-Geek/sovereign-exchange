@@ -24,7 +24,11 @@ pub struct Sequencer {
 impl Sequencer {
     pub fn new(capacity: usize, generation: Generation) -> Self {
         let (tx, rx) = bounded(capacity);
-        Self { tx, rx, generation }
+        Self {
+            tx,
+            rx,
+            generation,
+        }
     }
 
     pub fn generation(&self) -> Generation {
@@ -181,6 +185,7 @@ mod tests {
         assert_eq!(standby.engine().book(0).unwrap().order_map.len(), 2);
         assert_eq!(primary.book(0).unwrap().order_map.len(), 2);
     }
+
     #[test]
     fn primary_and_standby_converge_across_lifecycle() {
         let sequencer = Sequencer::new(16, Generation(7));
@@ -226,8 +231,17 @@ mod tests {
         for command in commands {
             sequencer.submit(Generation(7), command).unwrap();
         }
-        assert_eq!(sequencer.drain_into(&mut primary, Some(&mut standby)).unwrap(), 4);
-        assert_eq!(primary.state_fingerprint(), standby.engine().state_fingerprint());
+
+        assert_eq!(
+            sequencer
+                .drain_into(&mut primary, Some(&mut standby))
+                .unwrap(),
+            4
+        );
+        assert_eq!(
+            primary.state_fingerprint(),
+            standby.engine().state_fingerprint()
+        );
         assert_eq!(standby.applied(), 4);
     }
 
@@ -241,5 +255,4 @@ mod tests {
         );
         assert!(standby.apply(Generation(5), order(1)).is_ok());
     }
-
 }
