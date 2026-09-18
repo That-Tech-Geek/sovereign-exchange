@@ -89,6 +89,12 @@ pub enum DurableRecoveryError {
     Journal(CommandJournalError),
     Accept(OrderAcceptError),
 }
+impl From<OrderAcceptError> for DurableRecoveryError {
+    fn from(e: OrderAcceptError) -> Self {
+        Self::Accept(e)
+    }
+}
+
 impl From<CommandJournalError> for DurableRecoveryError {
     fn from(e: CommandJournalError) -> Self {
         Self::Journal(e)
