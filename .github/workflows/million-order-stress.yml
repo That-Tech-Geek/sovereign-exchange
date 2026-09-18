@@ -1,0 +1,28 @@
+name: Million Order Stress Benchmark
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: exchange_core
+      - name: Run 1M buy + 1M sell stress
+        working-directory: exchange_core
+        run: |
+          cargo run --release --bin million_order_stress | tee million_order_stress.txt
+      - name: Publish benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: million-order-stress-results
+          path: exchange_core/million_order_stress.txt
