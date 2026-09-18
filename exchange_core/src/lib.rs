@@ -3,6 +3,7 @@
 pub mod book;
 pub mod command;
 pub mod command_journal;
+pub mod consensus;
 pub mod constants;
 pub mod engine;
 pub mod health;
@@ -29,6 +30,7 @@ pub use command::{
     ReplaceOrder,
 };
 pub use command_journal::{CommandJournal, CommandJournalError};
+pub use consensus::{AppendEntries, AppendResponse, ConsensusError, LogEntry, LogIndex, NodeId, RaftAction, RaftNode, RequestVote, Role, Term, VoteResponse};
 pub use constants::*;
 pub use engine::{
     AcceptedOrder, DurableAcceptError, DurableRecoveryError, IngressError, MatchingEngine,
