@@ -16,8 +16,8 @@ pub mod order;
 pub mod pool;
 pub mod quorum;
 pub mod replay;
-pub mod risk;
 pub mod replication;
+pub mod risk;
 pub mod ring;
 pub mod scavenger;
 pub mod sequence;
@@ -55,7 +55,6 @@ pub use metrics::PerformanceMetrics;
 pub use order::{ClientOrderId, ExchangeOrderId, OrderKey, OrderPacket};
 pub use pool::{CommandKind, Order, OrderPool, PoolError};
 pub use quorum::{CommitIndex, QuorumError, QuorumTracker, ReplicatedEntry, ReplicationLog};
-pub use risk::{Account, AccountStatus, Cash, Notional, Quantity, Reservation, RiskEngine, RiskError, RiskLimits};
 pub use replay::{
     replay_bytes, replay_file, ReplayError, ReplayLedger, ReplayOrderKey, ReplayTrade,
 };

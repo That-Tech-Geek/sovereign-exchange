@@ -166,11 +166,7 @@ impl RiskEngine {
         Ok(())
     }
 
-    pub fn set_limits(
-        &mut self,
-        account_id: u32,
-        limits: RiskLimits,
-    ) -> Result<(), RiskError> {
+    pub fn set_limits(&mut self, account_id: u32, limits: RiskLimits) -> Result<(), RiskError> {
         if limits.max_order_notional < 0 || limits.max_gross_notional < 0 {
             return Err(RiskError::InvalidPrice);
         }
@@ -182,11 +178,7 @@ impl RiskEngine {
         Ok(())
     }
 
-    pub fn set_status(
-        &mut self,
-        account_id: u32,
-        status: AccountStatus,
-    ) -> Result<(), RiskError> {
+    pub fn set_status(&mut self, account_id: u32, status: AccountStatus) -> Result<(), RiskError> {
         let account = self
             .accounts
             .get_mut(&account_id)
@@ -492,7 +484,13 @@ mod tests {
     use crate::command::{CancelOrder, NewOrder};
     use crate::order::ClientOrderId;
 
-    fn new_order(account_id: u32, id: u64, side: OrderSide, price: u32, quantity: u32) -> OrderCommand {
+    fn new_order(
+        account_id: u32,
+        id: u64,
+        side: OrderSide,
+        price: u32,
+        quantity: u32,
+    ) -> OrderCommand {
         OrderCommand::New(NewOrder {
             client_order_id: ClientOrderId(id),
             account_id,
