@@ -60,16 +60,18 @@ fn main() {
     let admission_ms = admission_start.elapsed().as_secs_f64() * 1_000.0;
 
     let clear_start = Instant::now();
+    let mut total_trades = 0usize;
     for idx in buy_indices {
         engine.process_command(idx);
+        total_trades += engine.trade_count;
     }
     for idx in sell_indices {
         engine.process_command(idx);
+        total_trades += engine.trade_count;
     }
     let clear = clear_start.elapsed();
 
     let total_orders = PAIRS * 2;
-    let total_trades = engine.trade_count;
     let seconds = clear.as_secs_f64();
     let orders_per_sec = total_orders as f64 / seconds;
     let trades_per_sec = total_trades as f64 / seconds;
