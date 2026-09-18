@@ -1,6 +1,6 @@
 use crate::book::OrderBook;
-use crate::command_journal::{CommandJournal, CommandJournalError};
 use crate::command::{CommandRejectReason, ExchangeEvent, OrderCommand};
+use crate::command_journal::{CommandJournal, CommandJournalError};
 use crate::constants::{INITIAL_TRADE_CAPACITY, MAX_INSTRUMENTS};
 use crate::instrument::{Instrument, InstrumentRegistry, SOVEREIGNS};
 use crate::order::{ClientOrderId, ExchangeOrderId, OrderPacket};
@@ -78,11 +78,22 @@ pub enum DurableAcceptError {
     Validation(OrderAcceptError),
     Journal(CommandJournalError),
 }
-impl From<OrderAcceptError> for DurableAcceptError { fn from(e: OrderAcceptError) -> Self { Self::Validation(e) } }
+impl From<OrderAcceptError> for DurableAcceptError {
+    fn from(e: OrderAcceptError) -> Self {
+        Self::Validation(e)
+    }
+}
 
 #[derive(Debug)]
-pub enum DurableRecoveryError { Journal(CommandJournalError), Accept(OrderAcceptError) }
-impl From<CommandJournalError> for DurableRecoveryError { fn from(e: CommandJournalError) -> Self { Self::Journal(e) } }
+pub enum DurableRecoveryError {
+    Journal(CommandJournalError),
+    Accept(OrderAcceptError),
+}
+impl From<CommandJournalError> for DurableRecoveryError {
+    fn from(e: CommandJournalError) -> Self {
+        Self::Journal(e)
+    }
+}
 
 pub struct MatchingEngine {
     pub pool: OrderPool,
