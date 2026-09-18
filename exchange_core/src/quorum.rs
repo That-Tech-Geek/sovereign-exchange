@@ -43,6 +43,10 @@ impl ReplicationLog {
     pub fn len(&self) -> usize {
         self.entries.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
     pub fn last_index(&self) -> CommitIndex {
         CommitIndex(self.next_index.saturating_sub(1))
     }
