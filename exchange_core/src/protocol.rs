@@ -282,7 +282,7 @@ impl WireFrame {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GatewayAction {
     Accepted(OrderCommand),
     Send(WireMessage),
