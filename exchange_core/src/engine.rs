@@ -1,5 +1,6 @@
 use crate::book::OrderBook;
 use crate::command::{CommandRejectReason, ExchangeEvent, OrderCommand};
+use crate::command_journal::{CommandJournal, CommandJournalError};
 use crate::constants::{INITIAL_TRADE_CAPACITY, MAX_INSTRUMENTS};
 use crate::instrument::{Instrument, InstrumentRegistry, SOVEREIGNS};
 use crate::order::{ClientOrderId, ExchangeOrderId, OrderPacket};
@@ -70,6 +71,34 @@ pub struct AcceptedOrder {
 pub enum IngressError {
     QueueFull,
     QueueDisconnected,
+}
+
+#[derive(Debug)]
+pub enum DurableAcceptError {
+    Validation(OrderAcceptError),
+    Journal(CommandJournalError),
+}
+impl From<OrderAcceptError> for DurableAcceptError {
+    fn from(e: OrderAcceptError) -> Self {
+        Self::Validation(e)
+    }
+}
+
+#[derive(Debug)]
+pub enum DurableRecoveryError {
+    Journal(CommandJournalError),
+    Accept(OrderAcceptError),
+}
+impl From<OrderAcceptError> for DurableRecoveryError {
+    fn from(e: OrderAcceptError) -> Self {
+        Self::Accept(e)
+    }
+}
+
+impl From<CommandJournalError> for DurableRecoveryError {
+    fn from(e: CommandJournalError) -> Self {
+        Self::Journal(e)
+    }
 }
 
 pub struct MatchingEngine {
@@ -241,6 +270,35 @@ impl MatchingEngine {
                 Err(IngressError::QueueDisconnected)
             }
         }
+    }
+
+    pub fn accept_durable(
+        &mut self,
+        command: &OrderCommand,
+        journal: &mut CommandJournal,
+    ) -> Result<AcceptedOrder, DurableAcceptError> {
+        let accepted = self.accept_command(command)?;
+        if let Err(error) = journal.append(command) {
+            self.pool.deallocate(accepted.pool_index);
+            self.next_sequence_number = accepted.sequence_number.0;
+            if accepted.exchange_order_id.0 != 0 {
+                self.next_exchange_order_id = accepted.exchange_order_id.0;
+            }
+            return Err(DurableAcceptError::Journal(error));
+        }
+        Ok(accepted)
+    }
+
+    pub fn recover_from_command_journal(
+        &mut self,
+        journal: &mut CommandJournal,
+    ) -> Result<usize, DurableRecoveryError> {
+        let commands = journal.read_all()?;
+        for command in &commands {
+            let accepted = self.accept_command(command)?;
+            self.process_order(accepted.pool_index);
+        }
+        Ok(commands.len())
     }
 
     #[inline(always)]

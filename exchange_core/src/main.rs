@@ -2,6 +2,7 @@
 
 mod book;
 mod command;
+mod command_journal;
 mod constants;
 mod engine;
 mod health;
