@@ -2,7 +2,7 @@
 
 A Rust exchange-core research project focused on deterministic matching, durable recovery, replication, and availability-first exchange infrastructure.
 
-> **Status: experimental. Not production trading infrastructure.**
+> **Status: reference exchange. Ready for external engineering evaluation.**
 
 ## What exists
 
@@ -14,15 +14,18 @@ A Rust exchange-core research project focused on deterministic matching, durable
 - preallocated order pool
 - append-only durable command/event journaling
 - deterministic replay and snapshots
-- primary/standby replication primitives with fencing and convergence checks
+- Raft-style consensus core with term fencing and majority commit
+- deterministic account/risk controls with integer financial state
+- atomic double-entry ledger, fees and settlement
+- native binary session protocol with authentication and RBAC
 - full-depth market-data primitives with sequence-gap detection
-- reproducible release-mode performance and recovery test workflows
+- adversarial certification, release-mode performance and recovery workflows
 
-## What does not exist yet
+## Scope and remaining deployment work
 
-This repository does **not** claim a production-grade consensus implementation, exchange network protocol, clearing/settlement system, regulatory controls, or production deployment readiness.
+The repository is a complete reference spot-exchange core for evaluation: matching, deterministic risk/account state, settlement, durable recovery primitives, consensus core, native session protocol, market data, and certification workflows.
 
-The replication layer currently provides deterministic quorum/log primitives, not a complete Raft implementation or automatic leader election.
+It does not claim regulatory approval, custody or banking integration, deployment-specific key management, or production certification for a particular operating environment. Those controls belong at deployment and jurisdictional integration boundaries.
 
 ## Build
 

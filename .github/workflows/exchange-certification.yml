@@ -1,0 +1,27 @@
+name: Exchange Certification
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  certification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Format
+        run: cd exchange_core && cargo fmt -- --check
+      - name: Build release
+        run: cd exchange_core && cargo build --release
+      - name: Certification tests
+        run: cd exchange_core && cargo test --all-targets --all-features --release certification::tests
+      - name: Full tests
+        run: cd exchange_core && cargo test --all-targets --all-features --release
+      - name: Clippy
+        run: cd exchange_core && cargo clippy --all-targets --all-features -- -D warnings
