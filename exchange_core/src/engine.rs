@@ -426,6 +426,64 @@ impl MatchingEngine {
         &self.last_events
     }
 
+    /// Deterministic digest of live matcher state for replica convergence checks.
+    /// Hash-map iteration order is normalized by sorting client identity keys first.
+    pub fn state_fingerprint(&self) -> u64 {
+        let mut hash = 0xcbf29ce484222325u64;
+        let mut mix = |value: u64| {
+            hash ^= value;
+            hash = hash.wrapping_mul(0x100000001b3);
+        };
+
+        mix(self.next_exchange_order_id);
+        mix(self.next_sequence_number);
+        mix(self.pool.allocated_count as u64);
+
+        for (instrument_id, book) in self.books.iter().enumerate() {
+            let mut orders = Vec::with_capacity(book.order_map.len());
+            for (key, &idx) in &book.order_map {
+                let order = &self.pool.data[idx as usize];
+                orders.push((
+                    key.account_id,
+                    key.client_order_id.0,
+                    order.exchange_order_id,
+                    order.side,
+                    order.price,
+                    order.quantity,
+                    order.remaining,
+                    order.sequence_number,
+                    order.client_timestamp,
+                ));
+            }
+            orders.sort_unstable();
+            mix(instrument_id as u64);
+            mix(orders.len() as u64);
+            for (
+                account_id,
+                client_order_id,
+                exchange_order_id,
+                side,
+                price,
+                quantity,
+                remaining,
+                sequence_number,
+                client_timestamp,
+            ) in orders
+            {
+                mix(account_id as u64);
+                mix(client_order_id);
+                mix(exchange_order_id);
+                mix(side as u64);
+                mix(price as u64);
+                mix(quantity as u64);
+                mix(remaining as u64);
+                mix(sequence_number);
+                mix(client_timestamp);
+            }
+        }
+        hash
+    }
+
     #[inline(always)]
     pub fn cancel_order(
         &mut self,
