@@ -101,7 +101,9 @@ impl RaftNode {
     ) -> Result<Self, ConsensusError> {
         members.sort_unstable();
         members.dedup();
-        if members.len() < 3 || members.len().is_multiple_of(2) || !members.contains(&id)
+        if members.len() < 3
+            || members.len().is_multiple_of(2)
+            || !members.contains(&id)
             || election_timeout == 0
             || heartbeat_interval == 0
         {
@@ -333,8 +335,9 @@ impl RaftNode {
         for entry in request.entries {
             let position = entry.index.0.saturating_sub(1) as usize;
             if position < self.log.len() {
-                if self.log[position].term != entry.term || self.log[position].command != entry.command {
-                    self.log.truncate(position);
+                if self.log[position].term != entry.term
+                    || self.log[position].command != entry.command
+                {                    self.log.truncate(position);
                     self.log.push(entry);
                 }
             } else if position == self.log.len() {
@@ -375,7 +378,8 @@ impl RaftNode {
 
         if response.success {
             self.match_index.insert(peer, response.match_index);
-            self.next_index.insert(peer, LogIndex(response.match_index.0 + 1));
+            self.next_index
+                .insert(peer, LogIndex(response.match_index.0 + 1));
             self.advance_commit();
             Ok(Vec::new())
         } else {
@@ -431,11 +435,9 @@ impl RaftNode {
             .iter()
             .copied()
             .filter(|peer| *peer != self.id)
-            .map(|to| {
-                RaftAction::AppendEntries {
-                    to,
-                    request: self.append_request_for(to),
-                }
+            .map(|to| RaftAction::AppendEntries {
+                to,
+                request: self.append_request_for(to),
             })
             .collect()
     }
@@ -551,28 +553,32 @@ mod tests {
     fn follower_rejects_stale_leader_and_accepts_current_log() {
         let mut follower = RaftNode::new(NodeId(2), members(), 3, 1).unwrap();
         follower.start_election();
-        let response = follower.handle_append_entries(AppendEntries {
-            term: Term(0),
-            leader_id: NodeId(1),
-            prev_log_index: LogIndex(0),
-            prev_log_term: Term(0),
-            entries: Vec::new(),
-            leader_commit: LogIndex(0),
-        }).unwrap();
+        let response = follower
+            .handle_append_entries(AppendEntries {
+                term: Term(0),
+                leader_id: NodeId(1),
+                prev_log_index: LogIndex(0),
+                prev_log_term: Term(0),
+                entries: Vec::new(),
+                leader_commit: LogIndex(0),
+            })
+            .unwrap();
         assert!(!response.success);
 
-        let response = follower.handle_append_entries(AppendEntries {
-            term: Term(1),
-            leader_id: NodeId(1),
-            prev_log_index: LogIndex(0),
-            prev_log_term: Term(0),
-            entries: vec![LogEntry {
-                index: LogIndex(1),
+        let response = follower
+            .handle_append_entries(AppendEntries {
                 term: Term(1),
-                command: command(1),
-            }],
-            leader_commit: LogIndex(1),
-        }).unwrap();
+                leader_id: NodeId(1),
+                prev_log_index: LogIndex(0),
+                prev_log_term: Term(0),
+                entries: vec![LogEntry {
+                    index: LogIndex(1),
+                    term: Term(1),
+                    command: command(1),
+                }],
+                leader_commit: LogIndex(1),
+            })
+            .unwrap();
         assert!(response.success);
         assert_eq!(follower.commit_index(), LogIndex(1));
         assert_eq!(follower.take_committed(), vec![command(1)]);
@@ -582,11 +588,13 @@ mod tests {
     fn leader_replicates_and_commits_on_majority() {
         let mut leader = RaftNode::new(NodeId(1), members(), 3, 1).unwrap();
         leader.start_election();
-        leader.handle_vote_response(VoteResponse {
-            term: Term(1),
-            voter_id: NodeId(2),
-            granted: true,
-        }).unwrap();
+        leader
+            .handle_vote_response(VoteResponse {
+                term: Term(1),
+                voter_id: NodeId(2),
+                granted: true,
+            })
+            .unwrap();
         assert_eq!(leader.role(), Role::Leader);
 
         let actions = leader.propose(command(9)).unwrap();
@@ -616,28 +624,32 @@ mod tests {
             term: Term(1),
             command: command(1),
         };
-        follower.handle_append_entries(AppendEntries {
-            term: Term(1),
-            leader_id: NodeId(1),
-            prev_log_index: LogIndex(0),
-            prev_log_term: Term(0),
-            entries: vec![old],
-            leader_commit: LogIndex(0),
-        }).unwrap();
+        follower
+            .handle_append_entries(AppendEntries {
+                term: Term(1),
+                leader_id: NodeId(1),
+                prev_log_index: LogIndex(0),
+                prev_log_term: Term(0),
+                entries: vec![old],
+                leader_commit: LogIndex(0),
+            })
+            .unwrap();
 
         let replacement = LogEntry {
             index: LogIndex(1),
             term: Term(2),
             command: command(2),
         };
-        follower.handle_append_entries(AppendEntries {
-            term: Term(2),
-            leader_id: NodeId(1),
-            prev_log_index: LogIndex(0),
-            prev_log_term: Term(0),
-            entries: vec![replacement],
-            leader_commit: LogIndex(0),
-        }).unwrap();
+        follower
+            .handle_append_entries(AppendEntries {
+                term: Term(2),
+                leader_id: NodeId(1),
+                prev_log_index: LogIndex(0),
+                prev_log_term: Term(0),
+                entries: vec![replacement],
+                leader_commit: LogIndex(0),
+            })
+            .unwrap();
 
         assert_eq!(follower.log()[0].command, command(2));
         assert_eq!(follower.log()[0].term, Term(2));
@@ -647,11 +659,13 @@ mod tests {
     fn candidate_steps_down_on_higher_term() {
         let mut node = RaftNode::new(NodeId(1), members(), 3, 1).unwrap();
         node.start_election();
-        let actions = node.handle_vote_response(VoteResponse {
-            term: Term(2),
-            voter_id: NodeId(2),
-            granted: false,
-        }).unwrap();
+        let actions = node
+            .handle_vote_response(VoteResponse {
+                term: Term(2),
+                voter_id: NodeId(2),
+                granted: false,
+            })
+            .unwrap();
         assert!(actions.is_empty());
         assert_eq!(node.role(), Role::Follower);
         assert_eq!(node.term(), Term(2));

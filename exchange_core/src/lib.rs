@@ -30,7 +30,10 @@ pub use command::{
     ReplaceOrder,
 };
 pub use command_journal::{CommandJournal, CommandJournalError};
-pub use consensus::{AppendEntries, AppendResponse, ConsensusError, LogEntry, LogIndex, NodeId, RaftAction, RaftNode, RequestVote, Role, Term, VoteResponse};
+pub use consensus::{
+    AppendEntries, AppendResponse, ConsensusError, LogEntry, LogIndex, NodeId, RaftAction,
+    RaftNode, RequestVote, Role, Term, VoteResponse,
+};
 pub use constants::*;
 pub use engine::{
     AcceptedOrder, DurableAcceptError, DurableRecoveryError, IngressError, MatchingEngine,
