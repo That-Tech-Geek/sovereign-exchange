@@ -38,6 +38,10 @@ pub struct OrderBook {
     pub order_map: HashMap<OrderKey, u32>,
 }
 
+impl Default for OrderBook {
+    fn default() -> Self { Self::new() }
+}
+
 impl OrderBook {
     pub fn new() -> Self {
         Self {
