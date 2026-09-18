@@ -229,7 +229,8 @@ impl WireFrame {
         out.extend_from_slice(&0u16.to_le_bytes());
         out.extend_from_slice(&self.sequence.0.to_le_bytes());
         out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-        out.extend_from_slice(&crc32(&payload).to_le_bytes());
+        let checksum = frame_crc(&out[4..], &payload);
+        out.extend_from_slice(&checksum.to_le_bytes());
         out.extend_from_slice(&payload);
         Ok(out)
     }
@@ -247,13 +248,20 @@ impl WireFrame {
 
         let message_type = MessageType::from_u8(bytes[5])?;
         let sequence = MessageSeq(u64::from_le_bytes(
-            bytes[8..16].try_into().map_err(|_| ProtocolError::Truncated)?,
+            bytes[8..16]
+                .try_into()
+                .map_err(|_| ProtocolError::Truncated)?,
         ));
-        let payload_len =
-            u32::from_le_bytes(bytes[16..20].try_into().map_err(|_| ProtocolError::Truncated)?)
-                as usize;
-        let expected_crc =
-            u32::from_le_bytes(bytes[20..24].try_into().map_err(|_| ProtocolError::Truncated)?);
+        let payload_len = u32::from_le_bytes(
+            bytes[16..20]
+                .try_into()
+                .map_err(|_| ProtocolError::Truncated)?,
+        ) as usize;
+        let expected_crc = u32::from_le_bytes(
+            bytes[20..24]
+                .try_into()
+                .map_err(|_| ProtocolError::Truncated)?,
+        );
 
         if payload_len > MAX_PAYLOAD {
             return Err(ProtocolError::PayloadTooLarge);
@@ -263,7 +271,7 @@ impl WireFrame {
         }
 
         let payload = &bytes[HEADER_LEN..];
-        if crc32(payload) != expected_crc {
+        if frame_crc(&bytes[4..20], payload) != expected_crc {
             return Err(ProtocolError::ChecksumMismatch);
         }
 
@@ -324,8 +332,11 @@ impl GatewaySession {
                     return Err(ProtocolError::PermissionDenied);
                 }
                 let role = credentials.authenticate(api_key, &token)?;
-                self.session
-                    .establish(MessageSeq(frame.sequence.0 + 1), MessageSeq(1), heartbeat_ticks);
+                self.session.establish(
+                    MessageSeq(frame.sequence.0 + 1),
+                    MessageSeq(1),
+                    heartbeat_ticks,
+                );
                 self.role = Some(role);
                 self.api_key = Some(api_key);
                 Ok(vec![GatewayAction::Send(WireMessage::Heartbeat)])
@@ -376,10 +387,7 @@ impl GatewaySession {
     }
 
     fn require(&self, permission: Permission) -> Result<(), ProtocolError> {
-        if self
-            .role
-            .is_some_and(|role| role.allows(permission))
-        {
+        if self.role.is_some_and(|role| role.allows(permission)) {
             Ok(())
         } else {
             Err(ProtocolError::PermissionDenied)
@@ -698,6 +706,21 @@ fn put_u32(out: &mut Vec<u8>, value: u32) {
 
 fn put_u64(out: &mut Vec<u8>, value: u64) {
     out.extend_from_slice(&value.to_le_bytes());
+}
+
+fn frame_crc(header_without_crc: &[u8], payload: &[u8]) -> u32 {
+    let mut crc = 0xffff_ffffu32;
+    for &byte in header_without_crc.iter().chain(payload.iter()) {
+        crc ^= byte as u32;
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 {
+                (crc >> 1) ^ 0xedb8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
 }
 
 fn crc32(bytes: &[u8]) -> u32 {
