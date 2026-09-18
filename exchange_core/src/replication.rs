@@ -65,7 +65,6 @@ impl Sequencer {
     }
 }
 
-#[derive(Debug)]
 pub struct HotStandby {
     engine: MatchingEngine,
     generation: Generation,
