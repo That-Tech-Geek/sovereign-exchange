@@ -20,6 +20,7 @@ jobs:
       - name: Run 1M buy + 1M sell stress
         working-directory: exchange_core
         run: |
+          set -o pipefail
           cargo run --release --bin million_order_stress | tee million_order_stress.txt
       - name: Publish benchmark results
         uses: actions/upload-artifact@v4
