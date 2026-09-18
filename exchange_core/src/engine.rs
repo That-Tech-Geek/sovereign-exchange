@@ -84,6 +84,10 @@ pub struct MatchingEngine {
     next_sequence_number: u64,
 }
 
+impl Default for MatchingEngine {
+    fn default() -> Self { Self::new() }
+}
+
 impl MatchingEngine {
     pub fn new() -> Self {
         Self {
