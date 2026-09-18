@@ -18,6 +18,7 @@ pub enum BotArchetype {
     SovereignArbitrage,
     NoiseTrader,
 }
+
 pub struct TradingBot {
     pub bot_id: u32,
     pub account_id: u32,
@@ -26,6 +27,7 @@ pub struct TradingBot {
     pub inventory: i64,
     pub orders_sent: u64,
 }
+
 impl TradingBot {
     pub fn new(bot_id: u32, total_bots: usize) -> Self {
         let account_id = 1_000 + bot_id;
@@ -105,6 +107,7 @@ impl TradingBot {
         }
     }
 }
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let num_bots: usize = if args.len() > 1 && args[1] == "--bots" {
