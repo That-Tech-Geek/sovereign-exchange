@@ -1,0 +1,26 @@
+name: Performance Harness
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: exchange_core
+      - name: Run deterministic performance harness
+        working-directory: exchange_core
+        run: cargo run --release --bin performance_harness | tee performance_harness.txt
+      - name: Publish benchmark
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-harness
+          path: exchange_core/performance_harness.txt
