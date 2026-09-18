@@ -36,7 +36,6 @@ fn accepted_commands_receive_monotonic_canonical_sequences() {
         .accept_order(&packet(2, 11, instrument, 1, 10000, 10, 1))
         .unwrap();
     engine.process_order(first.pool_index);
-    engine.process_order(second.pool_index);
 
     let cancel = engine
         .accept_order(&packet(1, 10, instrument, 2, 0, 0, 0))
