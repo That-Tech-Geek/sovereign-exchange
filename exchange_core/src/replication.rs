@@ -11,6 +11,7 @@ pub enum ReplicationError {
     QueueFull,
     Disconnected,
     Reject(OrderAcceptError),
+    Diverged { primary: u64, standby: u64 },
 }
 
 #[derive(Debug)]
@@ -58,6 +59,14 @@ impl Sequencer {
             engine.process_order(accepted.pool_index);
             if let Some(node) = standby.as_deref_mut() {
                 node.apply(self.generation, command)?;
+                let primary_fingerprint = engine.state_fingerprint();
+                let standby_fingerprint = node.engine().state_fingerprint();
+                if primary_fingerprint != standby_fingerprint {
+                    return Err(ReplicationError::Diverged {
+                        primary: primary_fingerprint,
+                        standby: standby_fingerprint,
+                    });
+                }
             }
             processed += 1;
         }
@@ -172,4 +181,65 @@ mod tests {
         assert_eq!(standby.engine().book(0).unwrap().order_map.len(), 2);
         assert_eq!(primary.book(0).unwrap().order_map.len(), 2);
     }
+    #[test]
+    fn primary_and_standby_converge_across_lifecycle() {
+        let sequencer = Sequencer::new(16, Generation(7));
+        let mut primary = MatchingEngine::new();
+        let mut standby = HotStandby::new(Generation(7));
+
+        let commands = [
+            OrderCommand::New(NewOrder {
+                client_order_id: ClientOrderId(10),
+                account_id: 1,
+                instrument_id: 0,
+                side: OrderSide::Buy,
+                price: 100,
+                quantity: 5,
+                client_timestamp: 10,
+            }),
+            OrderCommand::New(NewOrder {
+                client_order_id: ClientOrderId(20),
+                account_id: 2,
+                instrument_id: 0,
+                side: OrderSide::Sell,
+                price: 110,
+                quantity: 5,
+                client_timestamp: 20,
+            }),
+            OrderCommand::Replace(crate::command::ReplaceOrder {
+                account_id: 1,
+                instrument_id: 0,
+                target_client_order_id: ClientOrderId(10),
+                new_client_order_id: ClientOrderId(11),
+                side: OrderSide::Buy,
+                price: 105,
+                quantity: 5,
+                client_timestamp: 30,
+            }),
+            OrderCommand::Cancel(crate::command::CancelOrder {
+                account_id: 2,
+                instrument_id: 0,
+                client_order_id: ClientOrderId(20),
+            }),
+        ];
+
+        for command in commands {
+            sequencer.submit(Generation(7), command).unwrap();
+        }
+        assert_eq!(sequencer.drain_into(&mut primary, Some(&mut standby)).unwrap(), 4);
+        assert_eq!(primary.state_fingerprint(), standby.engine().state_fingerprint());
+        assert_eq!(standby.applied(), 4);
+    }
+
+    #[test]
+    fn promoted_standby_fences_old_generation() {
+        let mut standby = HotStandby::new(Generation(4));
+        standby.promote(Generation(5));
+        assert_eq!(
+            standby.apply(Generation(4), order(1)),
+            Err(ReplicationError::Fenced)
+        );
+        assert!(standby.apply(Generation(5), order(1)).is_ok());
+    }
+
 }
