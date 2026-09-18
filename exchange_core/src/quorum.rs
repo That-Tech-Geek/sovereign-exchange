@@ -14,7 +14,10 @@ pub struct ReplicatedEntry {
 pub enum QuorumError {
     InvalidClusterSize,
     StaleGeneration,
-    OutOfOrder { expected: CommitIndex, received: CommitIndex },
+    OutOfOrder {
+        expected: CommitIndex,
+        received: CommitIndex,
+    },
     DuplicateAck,
 }
 
@@ -27,14 +30,28 @@ pub struct ReplicationLog {
 
 impl ReplicationLog {
     pub fn new(generation: u64) -> Self {
-        Self { generation, next_index: 1, entries: Vec::new() }
+        Self {
+            generation,
+            next_index: 1,
+            entries: Vec::new(),
+        }
     }
 
-    pub fn generation(&self) -> u64 { self.generation }
-    pub fn len(&self) -> usize { self.entries.len() }
-    pub fn last_index(&self) -> CommitIndex { CommitIndex(self.next_index.saturating_sub(1)) }
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+    pub fn last_index(&self) -> CommitIndex {
+        CommitIndex(self.next_index.saturating_sub(1))
+    }
 
-    pub fn append(&mut self, generation: u64, command: OrderCommand) -> Result<ReplicatedEntry, QuorumError> {
+    pub fn append(
+        &mut self,
+        generation: u64,
+        command: OrderCommand,
+    ) -> Result<ReplicatedEntry, QuorumError> {
         if generation != self.generation {
             return Err(QuorumError::StaleGeneration);
         }
@@ -43,13 +60,20 @@ impl ReplicationLog {
             generation,
             command,
         };
-        self.next_index = self.next_index.checked_add(1).expect("replication index exhausted");
+        self.next_index = self
+            .next_index
+            .checked_add(1)
+            .expect("replication index exhausted");
         self.entries.push(entry);
         Ok(entry)
     }
 
     pub fn get(&self, index: CommitIndex) -> Option<ReplicatedEntry> {
-        index.0.checked_sub(1).and_then(|i| self.entries.get(i as usize)).copied()
+        index
+            .0
+            .checked_sub(1)
+            .and_then(|i| self.entries.get(i as usize))
+            .copied()
     }
 }
 
@@ -74,10 +98,19 @@ impl QuorumTracker {
         })
     }
 
-    pub fn quorum(&self) -> usize { self.cluster_size / 2 + 1 }
-    pub fn committed(&self) -> CommitIndex { self.committed }
+    pub fn quorum(&self) -> usize {
+        self.cluster_size / 2 + 1
+    }
+    pub fn committed(&self) -> CommitIndex {
+        self.committed
+    }
 
-    pub fn ack(&mut self, generation: u64, index: CommitIndex, replica: usize) -> Result<bool, QuorumError> {
+    pub fn ack(
+        &mut self,
+        generation: u64,
+        index: CommitIndex,
+        replica: usize,
+    ) -> Result<bool, QuorumError> {
         if generation != self.generation {
             return Err(QuorumError::StaleGeneration);
         }
@@ -138,6 +171,9 @@ mod tests {
     fn duplicate_ack_cannot_inflate_quorum() {
         let mut quorum = QuorumTracker::new(3, 1).unwrap();
         assert!(!quorum.ack(1, CommitIndex(1), 0).unwrap());
-        assert_eq!(quorum.ack(1, CommitIndex(1), 0), Err(QuorumError::DuplicateAck));
+        assert_eq!(
+            quorum.ack(1, CommitIndex(1), 0),
+            Err(QuorumError::DuplicateAck)
+        );
     }
 }
