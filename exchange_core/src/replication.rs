@@ -52,7 +52,9 @@ impl Sequencer {
         let mut processed = 0;
         let mut standby = standby;
         while let Ok(command) = self.rx.try_recv() {
-            let accepted = engine.accept_command(&command).map_err(ReplicationError::Reject)?;
+            let accepted = engine
+                .accept_command(&command)
+                .map_err(ReplicationError::Reject)?;
             engine.process_order(accepted.pool_index);
             if let Some(node) = standby.as_deref_mut() {
                 node.apply(self.generation, command)?;
@@ -162,7 +164,9 @@ mod tests {
         sequencer.submit(Generation(1), order(1)).unwrap();
         sequencer.submit(Generation(1), order(2)).unwrap();
         assert_eq!(
-            sequencer.drain_into(&mut primary, Some(&mut standby)).unwrap(),
+            sequencer
+                .drain_into(&mut primary, Some(&mut standby))
+                .unwrap(),
             2
         );
         assert_eq!(standby.applied(), 2);
