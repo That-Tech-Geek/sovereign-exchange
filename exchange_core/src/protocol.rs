@@ -229,7 +229,8 @@ impl WireFrame {
         out.extend_from_slice(&0u16.to_le_bytes());
         out.extend_from_slice(&self.sequence.0.to_le_bytes());
         out.extend_from_slice(&(payload.len() as u32).to_le_bytes());
-        out.extend_from_slice(&crc32(&payload).to_le_bytes());
+        let checksum = frame_crc(&out[4..], &payload);
+        out.extend_from_slice(&checksum.to_le_bytes());
         out.extend_from_slice(&payload);
         Ok(out)
     }
@@ -263,7 +264,7 @@ impl WireFrame {
         }
 
         let payload = &bytes[HEADER_LEN..];
-        if crc32(payload) != expected_crc {
+        if frame_crc(&bytes[4..20], payload) != expected_crc {
             return Err(ProtocolError::ChecksumMismatch);
         }
 
@@ -698,6 +699,21 @@ fn put_u32(out: &mut Vec<u8>, value: u32) {
 
 fn put_u64(out: &mut Vec<u8>, value: u64) {
     out.extend_from_slice(&value.to_le_bytes());
+}
+
+fn frame_crc(header_without_crc: &[u8], payload: &[u8]) -> u32 {
+    let mut crc = 0xffff_ffffu32;
+    for &byte in header_without_crc.iter().chain(payload.iter()) {
+        crc ^= byte as u32;
+        for _ in 0..8 {
+            crc = if crc & 1 != 0 {
+                (crc >> 1) ^ 0xedb8_8320
+            } else {
+                crc >> 1
+            };
+        }
+    }
+    !crc
 }
 
 fn crc32(bytes: &[u8]) -> u32 {

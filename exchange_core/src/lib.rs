@@ -2,6 +2,7 @@
 
 pub mod book;
 pub mod command;
+pub mod certification;
 pub mod command_journal;
 pub mod consensus;
 pub mod constants;
@@ -28,6 +29,7 @@ pub mod snapshot;
 pub mod ticker;
 
 pub use book::{OrderBook, PriceLevel};
+pub use certification::{run_smoke_certification, CertificationReport};
 pub use command::{
     CancelOrder, CommandRejectReason, ExchangeEvent, NewOrder, OrderCommand, OrderSide,
     ReplaceOrder,
