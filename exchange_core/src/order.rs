@@ -41,7 +41,7 @@ impl OrderPacket {
 
     #[inline(always)]
     pub fn to_bytes(self) -> [u8; 32] {
-        unsafe { std::mem::transmute_copy(self) }
+        unsafe { std::mem::transmute_copy(&self) }
     }
 
     #[inline(always)]
