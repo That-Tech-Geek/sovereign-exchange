@@ -337,7 +337,8 @@ impl RaftNode {
             if position < self.log.len() {
                 if self.log[position].term != entry.term
                     || self.log[position].command != entry.command
-                {                    self.log.truncate(position);
+                {
+                    self.log.truncate(position);
                     self.log.push(entry);
                 }
             } else if position == self.log.len() {

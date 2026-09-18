@@ -18,6 +18,7 @@ pub mod quorum;
 pub mod replay;
 pub mod replication;
 pub mod ring;
+pub mod risk;
 pub mod scavenger;
 pub mod sequence;
 pub mod session;
