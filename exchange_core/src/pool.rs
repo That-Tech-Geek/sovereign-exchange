@@ -41,12 +41,16 @@ pub struct OrderPool {
     pub allocated_count: u32,
 }
 
+impl Default for OrderPool {
+    fn default() -> Self { Self::new() }
+}
+
 impl OrderPool {
     pub fn new() -> Self {
         let mut data = Vec::with_capacity(MAX_ORDERS);
         data.resize(MAX_ORDERS, Order::default());
-        for i in 1..MAX_ORDERS - 1 {
-            data[i].next = (i + 1) as u32;
+        for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS - 1).skip(1) {
+            order.next = (i + 1) as u32;
         }
         data[MAX_ORDERS - 1].next = u32::MAX;
         Self {
