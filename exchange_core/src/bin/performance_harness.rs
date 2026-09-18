@@ -34,7 +34,10 @@ fn print_latency(name: &str, samples: &[u64]) {
     println!("{name}_latency_p50_ns={}", percentile(&sorted, 0.50));
     println!("{name}_latency_p95_ns={}", percentile(&sorted, 0.95));
     println!("{name}_latency_p99_ns={}", percentile(&sorted, 0.99));
-    println!("{name}_latency_max_ns={}", sorted.last().copied().unwrap_or(0));
+    println!(
+        "{name}_latency_max_ns={}",
+        sorted.last().copied().unwrap_or(0)
+    );
 }
 
 fn main() {
@@ -53,12 +56,7 @@ fn main() {
     let mut resting = Vec::with_capacity(ORDERS);
     for i in 0..ORDERS {
         let accepted = engine
-            .accept_order(&packet(
-                i as u64 + 1,
-                1 + (i % 100_000) as u32,
-                0,
-                PRICE,
-            ))
+            .accept_order(&packet(i as u64 + 1, 1 + (i % 100_000) as u32, 0, PRICE))
             .expect("resting admission");
         resting.push(accepted.pool_index);
     }
@@ -81,12 +79,7 @@ fn main() {
     let mut crossing = MatchingEngine::new();
     for i in 0..ORDERS {
         let accepted = crossing
-            .accept_order(&packet(
-                i as u64 + 1,
-                1 + (i % 100_000) as u32,
-                0,
-                PRICE,
-            ))
+            .accept_order(&packet(i as u64 + 1, 1 + (i % 100_000) as u32, 0, PRICE))
             .expect("buy admission");
         crossing.process_order(accepted.pool_index);
     }
