@@ -13,6 +13,7 @@ pub mod metrics;
 pub mod order;
 pub mod pool;
 pub mod replay;
+pub mod replication;
 pub mod ring;
 pub mod scavenger;
 pub mod sequence;
@@ -44,6 +45,7 @@ pub use replay::{
     replay_bytes, replay_file, ReplayError, ReplayLedger, ReplayOrderKey, ReplayTrade,
 };
 pub use ring::{OrderQueue, RingBuffer};
+pub use replication::{Generation, HotStandby, ReplicationError, Sequencer};
 pub use sequence::SequenceNumber;
 pub use snapshot::{ReplaySnapshot, SnapshotError, SnapshotMeta};
 pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
