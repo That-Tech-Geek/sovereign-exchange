@@ -248,13 +248,20 @@ impl WireFrame {
 
         let message_type = MessageType::from_u8(bytes[5])?;
         let sequence = MessageSeq(u64::from_le_bytes(
-            bytes[8..16].try_into().map_err(|_| ProtocolError::Truncated)?,
+            bytes[8..16]
+                .try_into()
+                .map_err(|_| ProtocolError::Truncated)?,
         ));
-        let payload_len =
-            u32::from_le_bytes(bytes[16..20].try_into().map_err(|_| ProtocolError::Truncated)?)
-                as usize;
-        let expected_crc =
-            u32::from_le_bytes(bytes[20..24].try_into().map_err(|_| ProtocolError::Truncated)?);
+        let payload_len = u32::from_le_bytes(
+            bytes[16..20]
+                .try_into()
+                .map_err(|_| ProtocolError::Truncated)?,
+        ) as usize;
+        let expected_crc = u32::from_le_bytes(
+            bytes[20..24]
+                .try_into()
+                .map_err(|_| ProtocolError::Truncated)?,
+        );
 
         if payload_len > MAX_PAYLOAD {
             return Err(ProtocolError::PayloadTooLarge);
@@ -325,8 +332,11 @@ impl GatewaySession {
                     return Err(ProtocolError::PermissionDenied);
                 }
                 let role = credentials.authenticate(api_key, &token)?;
-                self.session
-                    .establish(MessageSeq(frame.sequence.0 + 1), MessageSeq(1), heartbeat_ticks);
+                self.session.establish(
+                    MessageSeq(frame.sequence.0 + 1),
+                    MessageSeq(1),
+                    heartbeat_ticks,
+                );
                 self.role = Some(role);
                 self.api_key = Some(api_key);
                 Ok(vec![GatewayAction::Send(WireMessage::Heartbeat)])
@@ -377,10 +387,7 @@ impl GatewaySession {
     }
 
     fn require(&self, permission: Permission) -> Result<(), ProtocolError> {
-        if self
-            .role
-            .is_some_and(|role| role.allows(permission))
-        {
+        if self.role.is_some_and(|role| role.allows(permission)) {
             Ok(())
         } else {
             Err(ProtocolError::PermissionDenied)
