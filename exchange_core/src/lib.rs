@@ -2,6 +2,7 @@
 
 pub mod book;
 pub mod command;
+pub mod command_journal;
 pub mod constants;
 pub mod engine;
 pub mod health;
@@ -19,12 +20,13 @@ pub mod snapshot;
 pub mod ticker;
 
 pub use book::{OrderBook, PriceLevel};
+pub use command_journal::{CommandJournal, CommandJournalError};
 pub use command::{
     CancelOrder, CommandRejectReason, ExchangeEvent, NewOrder, OrderCommand, OrderSide,
     ReplaceOrder,
 };
 pub use constants::*;
-pub use engine::{AcceptedOrder, IngressError, MatchingEngine, OrderAcceptError, Trade};
+pub use engine::{AcceptedOrder, DurableAcceptError, DurableRecoveryError, IngressError, MatchingEngine, OrderAcceptError, Trade};
 pub use health::{generate_health_json, start_health_server, HealthContext};
 pub use instrument::{
     future_instrument_id, spot_instrument_id, Instrument, InstrumentRegistry, InstrumentStatus,
