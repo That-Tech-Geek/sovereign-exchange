@@ -44,8 +44,8 @@ pub use pool::{CommandKind, Order, OrderPool, PoolError};
 pub use replay::{
     replay_bytes, replay_file, ReplayError, ReplayLedger, ReplayOrderKey, ReplayTrade,
 };
-pub use ring::{OrderQueue, RingBuffer};
 pub use replication::{Generation, HotStandby, ReplicationError, Sequencer};
+pub use ring::{OrderQueue, RingBuffer};
 pub use sequence::SequenceNumber;
 pub use snapshot::{ReplaySnapshot, SnapshotError, SnapshotMeta};
 pub use ticker::{CountryTicker, TickerRegistry, TICKERS};
