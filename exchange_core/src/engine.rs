@@ -24,6 +24,8 @@ pub struct Trade {
     pub seller_client_order_id: u64,
     pub buyer_sequence_number: u64,
     pub seller_sequence_number: u64,
+    /// Deterministic logical exchange timestamp, equal to the incoming
+    /// command's exchange sequence number. This is not wall-clock time.
     pub timestamp: u64,
 }
 
