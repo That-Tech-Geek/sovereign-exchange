@@ -13,9 +13,9 @@ pub mod market_data;
 pub mod metrics;
 pub mod order;
 pub mod pool;
+pub mod quorum;
 pub mod replay;
 pub mod replication;
-pub mod quorum;
 pub mod ring;
 pub mod scavenger;
 pub mod sequence;
@@ -47,11 +47,11 @@ pub use market_data::{
 pub use metrics::PerformanceMetrics;
 pub use order::{ClientOrderId, ExchangeOrderId, OrderKey, OrderPacket};
 pub use pool::{CommandKind, Order, OrderPool, PoolError};
+pub use quorum::{CommitIndex, QuorumError, QuorumTracker, ReplicatedEntry, ReplicationLog};
 pub use replay::{
     replay_bytes, replay_file, ReplayError, ReplayLedger, ReplayOrderKey, ReplayTrade,
 };
 pub use replication::{Generation, HotStandby, ReplicationError, Sequencer};
-pub use quorum::{CommitIndex, QuorumError, ReplicatedEntry, ReplicationLog, QuorumTracker};
 pub use ring::{OrderQueue, RingBuffer};
 pub use sequence::SequenceNumber;
 pub use snapshot::{ReplaySnapshot, SnapshotError, SnapshotMeta};
