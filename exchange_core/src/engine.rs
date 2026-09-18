@@ -85,7 +85,9 @@ pub struct MatchingEngine {
 }
 
 impl Default for MatchingEngine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MatchingEngine {

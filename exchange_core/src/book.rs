@@ -39,7 +39,9 @@ pub struct OrderBook {
 }
 
 impl Default for OrderBook {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OrderBook {

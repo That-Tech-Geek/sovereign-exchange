@@ -42,7 +42,9 @@ pub struct OrderPool {
 }
 
 impl Default for OrderPool {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OrderPool {
