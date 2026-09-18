@@ -10,8 +10,14 @@ pub struct RecoveryRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionError {
     NotEstablished,
-    DuplicateOrOld { expected: MessageSeq, received: MessageSeq },
-    Gap { expected: MessageSeq, received: MessageSeq },
+    DuplicateOrOld {
+        expected: MessageSeq,
+        received: MessageSeq,
+    },
+    Gap {
+        expected: MessageSeq,
+        received: MessageSeq,
+    },
     InvalidRecoveryRange,
 }
 
@@ -35,7 +41,12 @@ impl SessionState {
         }
     }
 
-    pub fn establish(&mut self, next_in: MessageSeq, next_out: MessageSeq, heartbeat_interval_ticks: u64) {
+    pub fn establish(
+        &mut self,
+        next_in: MessageSeq,
+        next_out: MessageSeq,
+        heartbeat_interval_ticks: u64,
+    ) {
         self.next_in = next_in;
         self.next_out = next_out;
         self.heartbeat_interval_ticks = heartbeat_interval_ticks;
@@ -43,15 +54,24 @@ impl SessionState {
         self.established = true;
     }
 
-    pub fn next_in(&self) -> MessageSeq { self.next_in }
-    pub fn next_out(&self) -> MessageSeq { self.next_out }
+    pub fn next_in(&self) -> MessageSeq {
+        self.next_in
+    }
+    pub fn next_out(&self) -> MessageSeq {
+        self.next_out
+    }
 
     pub fn allocate_outbound(&mut self) -> Result<MessageSeq, SessionError> {
         if !self.established {
             return Err(SessionError::NotEstablished);
         }
         let seq = self.next_out;
-        self.next_out = MessageSeq(self.next_out.0.checked_add(1).ok_or(SessionError::InvalidRecoveryRange)?);
+        self.next_out = MessageSeq(
+            self.next_out
+                .0
+                .checked_add(1)
+                .ok_or(SessionError::InvalidRecoveryRange)?,
+        );
         Ok(seq)
     }
 
@@ -60,12 +80,23 @@ impl SessionState {
             return Err(SessionError::NotEstablished);
         }
         if sequence < self.next_in {
-            return Err(SessionError::DuplicateOrOld { expected: self.next_in, received: sequence });
+            return Err(SessionError::DuplicateOrOld {
+                expected: self.next_in,
+                received: sequence,
+            });
         }
         if sequence > self.next_in {
-            return Err(SessionError::Gap { expected: self.next_in, received: sequence });
+            return Err(SessionError::Gap {
+                expected: self.next_in,
+                received: sequence,
+            });
         }
-        self.next_in = MessageSeq(self.next_in.0.checked_add(1).ok_or(SessionError::InvalidRecoveryRange)?);
+        self.next_in = MessageSeq(
+            self.next_in
+                .0
+                .checked_add(1)
+                .ok_or(SessionError::InvalidRecoveryRange)?,
+        );
         Ok(())
     }
 
@@ -76,7 +107,10 @@ impl SessionState {
         if received <= self.next_in {
             return Err(SessionError::InvalidRecoveryRange);
         }
-        Ok(RecoveryRequest { begin: self.next_in, end: MessageSeq(received.0 - 1) })
+        Ok(RecoveryRequest {
+            begin: self.next_in,
+            end: MessageSeq(received.0 - 1),
+        })
     }
 
     pub fn heartbeat_due(&self, now_tick: u64) -> bool {
@@ -89,7 +123,9 @@ impl SessionState {
 }
 
 impl Default for SessionState {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -100,8 +136,20 @@ mod tests {
     fn ordered_session_detects_and_recovers_gaps() {
         let mut session = SessionState::new();
         session.establish(MessageSeq(1), MessageSeq(1), 10);
-        assert_eq!(session.receive(MessageSeq(2)), Err(SessionError::Gap { expected: MessageSeq(1), received: MessageSeq(2) }));
-        assert_eq!(session.recovery_request(MessageSeq(4)).unwrap(), RecoveryRequest { begin: MessageSeq(1), end: MessageSeq(3) });
+        assert_eq!(
+            session.receive(MessageSeq(2)),
+            Err(SessionError::Gap {
+                expected: MessageSeq(1),
+                received: MessageSeq(2)
+            })
+        );
+        assert_eq!(
+            session.recovery_request(MessageSeq(4)).unwrap(),
+            RecoveryRequest {
+                begin: MessageSeq(1),
+                end: MessageSeq(3)
+            }
+        );
         session.receive(MessageSeq(1)).unwrap();
         session.receive(MessageSeq(2)).unwrap();
         session.receive(MessageSeq(3)).unwrap();
