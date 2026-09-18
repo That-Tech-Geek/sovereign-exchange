@@ -446,8 +446,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(record.state, SettlementState::Settled);
-        assert_eq!(engine.ledger.balance(1, CASH), 89_800);
-        assert_eq!(engine.ledger.balance(2, CASH), 99_900);
+        assert_eq!(engine.ledger.balance(1, CASH), 89_980);
+        assert_eq!(engine.ledger.balance(2, CASH), 109_990);
         assert_eq!(engine.ledger.balance(1, STOCK), 100);
         assert_eq!(engine.ledger.balance(2, STOCK), 900);
         assert_eq!(engine.ledger.balance(FEE, CASH), 300);

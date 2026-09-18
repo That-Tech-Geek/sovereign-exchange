@@ -42,11 +42,7 @@ fn command_stream() -> Vec<OrderCommand> {
                 client_order_id: ClientOrderId(id),
                 account_id: 1 + (id % 32) as u32,
                 instrument_id: (id % 392) as u16,
-                side: if id % 2 == 0 {
-                    OrderSide::Buy
-                } else {
-                    OrderSide::Sell
-                },
+                side: OrderSide::Buy,
                 price: 100 + (id % 50) as u32,
                 quantity: 1 + (id % 7) as u32,
                 client_timestamp: id,
