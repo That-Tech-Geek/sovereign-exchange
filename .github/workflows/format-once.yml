@@ -1,6 +1,8 @@
 name: One-shot Rust autoformat
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
