@@ -140,7 +140,7 @@ fn main() {
     let _ring = RingBuffer::new();
     println!("\n⚡ Seeding initial sovereign orderbooks...");
     let seed_start = Instant::now();
-    for bot in bots.iter_mut().take(mm_count) {
+    for (i, bot) in bots.iter_mut().take(mm_count).enumerate() {
         let ticker = &TICKERS[bot.preferred_ticker as usize];
         let pkt = bot.generate_order(i as u64, ticker.base_price);
         let accepted = engine
