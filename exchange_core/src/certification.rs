@@ -1,4 +1,6 @@
 use crate::command::{NewOrder, OrderCommand, OrderSide};
+use crate::constants::MAX_INSTRUMENTS;
+use crate::instrument::{future_instrument_id, spot_instrument_id, SOVEREIGNS};
 use crate::consensus::{NodeId, RaftNode, Term, VoteResponse};
 use crate::engine::MatchingEngine;
 use crate::ledger::{
@@ -28,7 +30,7 @@ impl CertificationReport {
 
 pub fn run_smoke_certification() -> CertificationReport {
     CertificationReport {
-        deterministic_replay: deterministic_replay_check(),
+        deterministic_replay: deterministic_replay_check() && topology_check(),
         ledger_integrity: ledger_integrity_check(),
         consensus_fencing: consensus_fencing_check(),
         protocol_integrity: protocol_integrity_check(),
@@ -36,12 +38,22 @@ pub fn run_smoke_certification() -> CertificationReport {
 }
 
 fn command_stream() -> Vec<OrderCommand> {
+    let registered_instruments: Vec<u16> = SOVEREIGNS
+        .iter()
+        .flat_map(|sovereign| {
+            [
+                spot_instrument_id(sovereign.id),
+                future_instrument_id(sovereign.id),
+            ]
+        })
+        .collect();
+
     (1..=10_000)
         .map(|id| {
             OrderCommand::New(NewOrder {
                 client_order_id: ClientOrderId(id),
                 account_id: 1 + (id % 32) as u32,
-                instrument_id: (id % 392) as u16,
+                instrument_id: registered_instruments[(id as usize - 1) % registered_instruments.len()],
                 side: OrderSide::Buy,
                 price: 100 + (id % 50) as u32,
                 quantity: 1 + (id % 7) as u32,
@@ -49,6 +61,43 @@ fn command_stream() -> Vec<OrderCommand> {
             })
         })
         .collect()
+}
+
+fn topology_check() -> bool {
+    let engine = MatchingEngine::new();
+    let expected_registered = SOVEREIGNS.len() * 2;
+
+    if engine.books.len() != MAX_INSTRUMENTS
+        || engine.instruments.len() != expected_registered
+        || expected_registered > MAX_INSTRUMENTS
+    {
+        return false;
+    }
+
+    // Capacity and registration are deliberately separate contracts:
+    // all 392 books exist, while only the currently defined sovereigns are
+    // registered for admission.
+    for id in 0..MAX_INSTRUMENTS as u16 {
+        if engine.book(id).is_none() {
+            return false;
+        }
+    }
+
+    for sovereign in SOVEREIGNS {
+        let spot = spot_instrument_id(sovereign.id);
+        let future = future_instrument_id(sovereign.id);
+        if !engine.instrument(spot).is_some_and(|i| i.market_type == crate::instrument::MarketType::Spot)
+            || !engine.instrument(future).is_some_and(|i| i.market_type == crate::instrument::MarketType::Future)
+        {
+            return false;
+        }
+    }
+
+    // An unregistered capacity slot must not alias an adjacent registered
+    // instrument or become implicitly tradable.
+    let first_unregistered = (expected_registered) as u16;
+    engine.instrument(first_unregistered).is_none()
+        && engine.book(first_unregistered).is_some()
 }
 
 fn deterministic_replay_check() -> bool {

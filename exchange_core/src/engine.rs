@@ -24,6 +24,8 @@ pub struct Trade {
     pub seller_client_order_id: u64,
     pub buyer_sequence_number: u64,
     pub seller_sequence_number: u64,
+    /// Deterministic logical exchange timestamp, equal to the incoming
+    /// command's exchange sequence number. This is not wall-clock time.
     pub timestamp: u64,
 }
 
@@ -551,10 +553,10 @@ impl MatchingEngine {
                 seller_client_order_id: pool.data[ask_idx as usize].client_order_id,
                 buyer_sequence_number: pool.data[incoming_idx as usize].sequence_number,
                 seller_sequence_number: pool.data[ask_idx as usize].sequence_number,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos() as u64,
+                // Logical exchange time is derived from the deterministic
+                // command sequence. Never consult wall-clock time in the
+                // matching path.
+                timestamp: pool.data[incoming_idx as usize].sequence_number,
             });
 
             if pool.data[ask_idx as usize].remaining == 0 {
@@ -607,10 +609,10 @@ impl MatchingEngine {
                 seller_client_order_id: pool.data[incoming_idx as usize].client_order_id,
                 buyer_sequence_number: pool.data[bid_idx as usize].sequence_number,
                 seller_sequence_number: pool.data[incoming_idx as usize].sequence_number,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos() as u64,
+                // Logical exchange time is derived from the deterministic
+                // command sequence. Never consult wall-clock time in the
+                // matching path.
+                timestamp: pool.data[incoming_idx as usize].sequence_number,
             });
 
             if pool.data[bid_idx as usize].remaining == 0 {
