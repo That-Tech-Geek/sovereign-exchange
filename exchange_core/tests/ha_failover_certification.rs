@@ -161,7 +161,7 @@ fn measured_rpo_and_consensus_failover_rto() {
     rto_ms.sort_by(f64::total_cmp);
     ticks.sort_unstable();
 
-    let throughput_orders_s = (TRIALS as f64 * PREFIX_LEN) / (prefix_ms.iter().sum::<f64>() / 1000.0);
+    let throughput_orders_s = (TRIALS as f64 * PREFIX_LEN as f64) / (prefix_ms.iter().sum::<f64>() / 1000.0);
     let min = *rto_ms.first().unwrap();
     let max = *rto_ms.last().unwrap();
 
