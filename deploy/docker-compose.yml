@@ -1,0 +1,17 @@
+services:
+  exchange:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      SE_JOURNAL_PATH: /var/lib/sovereign-exchange/commands.journal
+    ports:
+      - "8080:8080"
+    volumes:
+      - exchange-journal:/var/lib/sovereign-exchange
+    read_only: true
+    tmpfs:
+      - /tmp
+volumes:
+  exchange-journal:
