@@ -1,0 +1,67 @@
+name: Production Certification
+
+on:
+  push:
+    branches: [main, cert/**]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-certification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rust-certification:
+    name: Rust production certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: exchange_core
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format check
+        run: cargo fmt -- --check
+
+      - name: Compile
+        run: cargo check --all-targets
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Unit and certification tests
+        run: cargo test --all-targets --all-features
+
+      - name: Release certification
+        run: cargo test --release --all-targets --all-features
+
+      - name: Determinism repetition
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 10); do
+            echo "determinism run $i/10"
+            cargo test --release deterministic_workload_replays_identically -- --exact
+          done
+
+      - name: Certification summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Production certification checks completed:"
+          echo "  format              PASS"
+          echo "  compile             PASS"
+          echo "  clippy              PASS"
+          echo "  unit/certification  PASS"
+          echo "  release tests       PASS"
+          echo "  deterministic x10   PASS"

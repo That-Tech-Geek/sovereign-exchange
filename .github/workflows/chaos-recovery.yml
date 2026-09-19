@@ -18,4 +18,4 @@ jobs:
           workspaces: exchange_core
       - name: Run recovery and corruption drills
         working-directory: exchange_core
-        run: cargo test --release chaos_recovery -- --nocapture
+        run: cargo test --release --test chaos_recovery_tests -- --nocapture
