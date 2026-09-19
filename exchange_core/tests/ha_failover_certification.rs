@@ -161,7 +161,8 @@ fn measured_rpo_and_consensus_failover_rto() {
     rto_ms.sort_by(f64::total_cmp);
     ticks.sort_unstable();
 
-    let throughput_orders_s = (TRIALS as f64 * PREFIX_LEN as f64) / (prefix_ms.iter().sum::<f64>() / 1000.0);
+    let throughput_orders_s =
+        (TRIALS as f64 * PREFIX_LEN as f64) / (prefix_ms.iter().sum::<f64>() / 1000.0);
     let min = *rto_ms.first().unwrap();
     let max = *rto_ms.last().unwrap();
 
@@ -169,21 +170,63 @@ fn measured_rpo_and_consensus_failover_rto() {
     println!("trials={TRIALS}");
     println!("prefix_entries={PREFIX_LEN}");
     println!("rpo_entries=0");
-    println!("election_ticks_p50={}", percentile(&ticks.iter().map(|v| *v as f64).collect::<Vec<_>>(), 0.50));
-    println!("election_ticks_p95={}", percentile(&ticks.iter().map(|v| *v as f64).collect::<Vec<_>>(), 0.95));
-    println!("prefix_replication_ms_p50={:.6}", percentile(&prefix_ms, 0.50));
-    println!("prefix_replication_ms_p95={:.6}", percentile(&prefix_ms, 0.95));
-    println!("prefix_replication_ms_p99={:.6}", percentile(&prefix_ms, 0.99));
+    println!(
+        "election_ticks_p50={}",
+        percentile(&ticks.iter().map(|v| *v as f64).collect::<Vec<_>>(), 0.50)
+    );
+    println!(
+        "election_ticks_p95={}",
+        percentile(&ticks.iter().map(|v| *v as f64).collect::<Vec<_>>(), 0.95)
+    );
+    println!(
+        "prefix_replication_ms_p50={:.6}",
+        percentile(&prefix_ms, 0.50)
+    );
+    println!(
+        "prefix_replication_ms_p95={:.6}",
+        percentile(&prefix_ms, 0.95)
+    );
+    println!(
+        "prefix_replication_ms_p99={:.6}",
+        percentile(&prefix_ms, 0.99)
+    );
     println!("prefix_replication_orders_s={throughput_orders_s:.0}");
-    println!("election_ms_p50={:.6}", percentile(&election_ms, 0.50));
-    println!("election_ms_p95={:.6}", percentile(&election_ms, 0.95));
-    println!("election_ms_p99={:.6}", percentile(&election_ms, 0.99));
-    println!("recommit_ms_p50={:.6}", percentile(&recommit_ms, 0.50));
-    println!("recommit_ms_p95={:.6}", percentile(&recommit_ms, 0.95));
-    println!("recommit_ms_p99={:.6}", percentile(&recommit_ms, 0.99));
-    println!("consensus_failover_rto_ms_p50={:.6}", percentile(&rto_ms, 0.50));
-    println!("consensus_failover_rto_ms_p95={:.6}", percentile(&rto_ms, 0.95));
-    println!("consensus_failover_rto_ms_p99={:.6}", percentile(&rto_ms, 0.99));
+    println!(
+        "election_ms_p50={:.6}",
+        percentile(&election_ms, 0.50)
+    );
+    println!(
+        "election_ms_p95={:.6}",
+        percentile(&election_ms, 0.95)
+    );
+    println!(
+        "election_ms_p99={:.6}",
+        percentile(&election_ms, 0.99)
+    );
+    println!(
+        "recommit_ms_p50={:.6}",
+        percentile(&recommit_ms, 0.50)
+    );
+    println!(
+        "recommit_ms_p95={:.6}",
+        percentile(&recommit_ms, 0.95)
+    );
+    println!(
+        "recommit_ms_p99={:.6}",
+        percentile(&recommit_ms, 0.99)
+    );
+    println!(
+        "consensus_failover_rto_ms_p50={:.6}",
+        percentile(&rto_ms, 0.50)
+    );
+    println!(
+        "consensus_failover_rto_ms_p95={:.6}",
+        percentile(&rto_ms, 0.95)
+    );
+    println!(
+        "consensus_failover_rto_ms_p99={:.6}",
+        percentile(&rto_ms, 0.99)
+    );
     println!("consensus_failover_rto_ms_min={min:.6}");
     println!("consensus_failover_rto_ms_max={max:.6}");
     println!("committed_prefix_preserved=true");
