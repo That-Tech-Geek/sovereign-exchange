@@ -195,30 +195,12 @@ fn measured_rpo_and_consensus_failover_rto() {
         percentile(&prefix_ms, 0.99)
     );
     println!("prefix_replication_orders_s={throughput_orders_s:.0}");
-    println!(
-        "election_ms_p50={:.6}",
-        percentile(&election_ms, 0.50)
-    );
-    println!(
-        "election_ms_p95={:.6}",
-        percentile(&election_ms, 0.95)
-    );
-    println!(
-        "election_ms_p99={:.6}",
-        percentile(&election_ms, 0.99)
-    );
-    println!(
-        "recommit_ms_p50={:.6}",
-        percentile(&recommit_ms, 0.50)
-    );
-    println!(
-        "recommit_ms_p95={:.6}",
-        percentile(&recommit_ms, 0.95)
-    );
-    println!(
-        "recommit_ms_p99={:.6}",
-        percentile(&recommit_ms, 0.99)
-    );
+    println!("election_ms_p50={:.6}", percentile(&election_ms, 0.50));
+    println!("election_ms_p95={:.6}", percentile(&election_ms, 0.95));
+    println!("election_ms_p99={:.6}", percentile(&election_ms, 0.99));
+    println!("recommit_ms_p50={:.6}", percentile(&recommit_ms, 0.50));
+    println!("recommit_ms_p95={:.6}", percentile(&recommit_ms, 0.95));
+    println!("recommit_ms_p99={:.6}", percentile(&recommit_ms, 0.99));
     println!(
         "consensus_failover_rto_ms_p50={:.6}",
         percentile(&rto_ms, 0.50)
