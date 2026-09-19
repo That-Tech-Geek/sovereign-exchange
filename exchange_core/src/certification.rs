@@ -1,7 +1,7 @@
 use crate::command::{NewOrder, OrderCommand, OrderSide};
+use crate::consensus::{NodeId, RaftNode, Term, VoteResponse};
 use crate::constants::MAX_INSTRUMENTS;
 use crate::instrument::{future_instrument_id, spot_instrument_id, SOVEREIGNS};
-use crate::consensus::{NodeId, RaftNode, Term, VoteResponse};
 use crate::engine::MatchingEngine;
 use crate::ledger::{
     AssetId, DoubleEntryLedger, FeeSchedule, LedgerKind, SettlementEngine, TradeSettlement,
@@ -53,7 +53,8 @@ fn command_stream() -> Vec<OrderCommand> {
             OrderCommand::New(NewOrder {
                 client_order_id: ClientOrderId(id),
                 account_id: 1 + (id % 32) as u32,
-                instrument_id: registered_instruments[(id as usize - 1) % registered_instruments.len()],
+                instrument_id: registered_instruments
+                    [(id as usize - 1) % registered_instruments.len()],
                 side: OrderSide::Buy,
                 price: 100 + (id % 50) as u32,
                 quantity: 1 + (id % 7) as u32,
@@ -86,8 +87,12 @@ fn topology_check() -> bool {
     for sovereign in SOVEREIGNS {
         let spot = spot_instrument_id(sovereign.id);
         let future = future_instrument_id(sovereign.id);
-        if !engine.instrument(spot).is_some_and(|i| i.market_type == crate::instrument::MarketType::Spot)
-            || !engine.instrument(future).is_some_and(|i| i.market_type == crate::instrument::MarketType::Future)
+        if !engine
+            .instrument(spot)
+            .is_some_and(|i| i.market_type == crate::instrument::MarketType::Spot)
+            || !engine
+                .instrument(future)
+                .is_some_and(|i| i.market_type == crate::instrument::MarketType::Future)
         {
             return false;
         }
@@ -96,8 +101,7 @@ fn topology_check() -> bool {
     // An unregistered capacity slot must not alias an adjacent registered
     // instrument or become implicitly tradable.
     let first_unregistered = (expected_registered) as u16;
-    engine.instrument(first_unregistered).is_none()
-        && engine.book(first_unregistered).is_some()
+    engine.instrument(first_unregistered).is_none() && engine.book(first_unregistered).is_some()
 }
 
 fn deterministic_replay_check() -> bool {
