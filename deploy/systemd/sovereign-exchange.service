@@ -16,8 +16,6 @@ RestartSec=2s
 KillSignal=SIGTERM
 TimeoutStopSec=10s
 
-Environment=SE_JOURNAL_PATH=/var/lib/sovereign-exchange/commands.journal
-Environment=SE_SNAPSHOT_DIR=/var/lib/sovereign-exchange/snapshots
 Environment=SE_NODE_ID=%H
 
 NoNewPrivileges=true
