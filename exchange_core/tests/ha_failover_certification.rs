@@ -116,7 +116,22 @@ fn measured_rpo_and_consensus_failover_rto() {
 
     let rto_ms = failure_at.elapsed().as_secs_f64() * 1000.0;
 
-    // The newly elected leader must retain the committed prefix.
+    // Re-establish the committed index on the new leader by replicating its
+    // retained prefix to the remaining node. This models the first healthy
+    // post-failover heartbeat/commit cycle.
+    let actions = candidate.tick();
+    for action in actions {
+        if let RaftAction::AppendEntries { to, request } = action {
+            if to == third.id() {
+                let response = third.handle_append_entries(request).unwrap();
+                candidate
+                    .handle_append_response(to, response)
+                    .unwrap();
+            }
+        }
+    }
+
+    // The newly elected leader must retain and recommit the acknowledged prefix.
     assert!(candidate.commit_index().0 >= acknowledged_before_failure);
     assert!(candidate.last_log_index().0 >= acknowledged_before_failure);
 
