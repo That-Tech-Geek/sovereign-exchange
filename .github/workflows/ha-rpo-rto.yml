@@ -1,0 +1,36 @@
+name: HA RPO RTO Certification
+
+on:
+  push:
+    branches: [main, cert/**]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ha-certification:
+    name: Measure consensus RPO/RTO
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run HA certification
+        working-directory: exchange_core
+        run: cargo test --release --test ha_failover_certification -- --nocapture
+      - name: Extract certification metrics
+        working-directory: exchange_core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test --release --test ha_failover_certification -- --nocapture 2>&1 | tee ha-certification.log
+          grep -E '^(acknowledged_before_failure|surviving_acknowledged|rpo_entries|election_ticks|consensus_failover_rto_ms|committed_prefix_preserved|VERDICT)=' ha-certification.log > ha-certification-metrics.txt
+          cat ha-certification-metrics.txt
+      - name: Upload HA certification metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: ha-certification-metrics
+          path: exchange_core/ha-certification-metrics.txt
