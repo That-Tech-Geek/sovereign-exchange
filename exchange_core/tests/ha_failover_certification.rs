@@ -1,5 +1,5 @@
 use exchange_core::{
-    AppendEntries, AppendResponse, LogIndex, NodeId, OrderCommand, RaftAction, RaftNode, Role, Term,
+    AppendResponse, LogIndex, NodeId, OrderCommand, RaftAction, RaftNode, Role,
 };
 use exchange_core::{ClientOrderId, NewOrder, OrderSide};
 use std::time::Instant;
@@ -76,16 +76,23 @@ fn measured_rpo_and_consensus_failover_rto() {
     // Replicate one additional command to only one survivor, but do not
     // acknowledge it as committed. It must not contribute to RPO.
     let actions = leader.propose(command(101)).unwrap();
-    let request = actions
-        .into_iter()
-        .find_map(|a| match a {
-            RaftAction::AppendEntries { to, request } if to == third.id() => Some(request),
-            _ => None,
-        })
-        .unwrap();
-    let response = third.handle_append_entries(request).unwrap();
-    assert!(response.success);
+    for action in actions {
+        if let RaftAction::AppendEntries { to, request } = action {
+            if to == third.id() {
+                let response = third.handle_append_entries(request).unwrap();
+                assert!(response.success);
+            } else if to == survivor.id() {
+                // Persist the uncommitted suffix on the surviving voter, but
+                // deliberately do not send its response back to the leader.
+                // Therefore the entry remains unacknowledged.
+                let response = survivor.handle_append_entries(request).unwrap();
+                assert!(response.success);
+            }
+        }
+    }
     assert_eq!(leader.commit_index(), LogIndex(100));
+    assert_eq!(survivor.last_log_index(), LogIndex(101));
+    assert_eq!(third.last_log_index(), LogIndex(101));
 
     let acknowledged_before_failure = leader.commit_index().0;
     let surviving_acknowledged = survivor.commit_index().0;
