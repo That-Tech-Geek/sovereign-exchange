@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           cargo test --release --test ha_failover_certification -- --nocapture 2>&1 | tee ha-certification.log
-          grep -E '^[a-z_]+=' ha-certification.log > ha-certification-metrics.txt
+          grep -E '^[[:alpha:]_]+=' ha-certification.log > ha-certification-metrics.txt
           grep -q '^VERDICT=PASS$' ha-certification-metrics.txt
           cat ha-certification-metrics.txt
       - name: Upload HA certification metrics
