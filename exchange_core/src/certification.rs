@@ -1,8 +1,8 @@
 use crate::command::{NewOrder, OrderCommand, OrderSide};
 use crate::consensus::{NodeId, RaftNode, Term, VoteResponse};
 use crate::constants::MAX_INSTRUMENTS;
-use crate::instrument::{future_instrument_id, spot_instrument_id, SOVEREIGNS};
 use crate::engine::MatchingEngine;
+use crate::instrument::{future_instrument_id, spot_instrument_id, SOVEREIGNS};
 use crate::ledger::{
     AssetId, DoubleEntryLedger, FeeSchedule, LedgerKind, SettlementEngine, TradeSettlement,
     Transfer,
