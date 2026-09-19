@@ -1,6 +1,4 @@
-use exchange_core::{
-    AppendResponse, LogIndex, NodeId, OrderCommand, RaftAction, RaftNode, Role,
-};
+use exchange_core::{AppendResponse, LogIndex, NodeId, OrderCommand, RaftAction, RaftNode, Role};
 use exchange_core::{ClientOrderId, NewOrder, OrderSide};
 use std::time::Instant;
 
@@ -134,7 +132,13 @@ fn one_trial() -> (f64, u64, f64, f64, f64) {
     assert!(candidate.commit_index().0 >= acknowledged_before_failure);
     assert!(candidate.last_log_index().0 >= acknowledged_before_failure);
 
-    (prefix_ms, ticks, election_ms, recommit_ms, rpo_entries as f64)
+    (
+        prefix_ms,
+        ticks,
+        election_ms,
+        recommit_ms,
+        rpo_entries as f64,
+    )
 }
 
 #[test]
