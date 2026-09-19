@@ -9,6 +9,7 @@ Type=simple
 User=exchange
 Group=exchange
 WorkingDirectory=/var/lib/sovereign-exchange
+EnvironmentFile=-/etc/sovereign-exchange/exchange.env
 ExecStart=/opt/sovereign-exchange/bin/exchange_core
 Restart=on-failure
 RestartSec=2s
