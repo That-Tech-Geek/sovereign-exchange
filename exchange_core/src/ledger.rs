@@ -347,6 +347,7 @@ mod tests {
     fn funded_ledger() -> DoubleEntryLedger {
         let mut ledger = DoubleEntryLedger::new();
         ledger.seed(1, CASH, 100_000).unwrap();
+        ledger.seed(2, CASH, 100_000).unwrap();
         ledger.seed(2, STOCK, 1_000).unwrap();
         ledger
     }
@@ -451,7 +452,7 @@ mod tests {
         assert_eq!(engine.ledger.balance(1, STOCK), 100);
         assert_eq!(engine.ledger.balance(2, STOCK), 900);
         assert_eq!(engine.ledger.balance(FEE, CASH), 300);
-        assert_eq!(engine.ledger.asset_total(CASH), 100_000);
+        assert_eq!(engine.ledger.asset_total(CASH), 200_000);
         assert_eq!(engine.ledger.asset_total(STOCK), 1_000);
     }
 
