@@ -1,52 +1,98 @@
-# Cloud deployment stack
+# Bare-cloud deployment
 
-This directory is the deployment boundary around the deterministic exchange core.
+Sovereign Exchange is deployed as a native Rust process on an ordinary Linux VM.
 
-## Current topology
+There is deliberately **no Docker, Kubernetes, managed database, Redis, Kafka, or cloud-specific runtime dependency** in the exchange core.
+
+## Current deployment boundary
 
 ```
-                    Cloud Load Balancer / API edge
-                              |
-                              v
-                     +------------------+
-                     | exchange pod     |
-                     | Rust matching    |
-                     | + health server  |
-                     +--------+---------+
-                              |
-                              v
-                   PersistentVolume / WAL
+                    Internet
+                       |
+                TCP gateway (future)
+                       |
+              +--------+--------+
+              |                 |
+        Exchange node A   Exchange node B/C
+        native Rust       native Rust
+              |
+       +------+------+
+       |             |
+   durable WAL    snapshots
+       |
+   persistent disk
 ```
 
-The hot matching path remains isolated from databases and cloud APIs. The command journal is the durable recovery boundary.
+The repository currently contains a deterministic exchange core plus a health server. The native client TCP gateway and real multi-process Raft transport are the next implementation stage. Until those are merged and certified, deployment must not be described as a networked HA exchange.
 
-## Local
+## VM requirements
+
+The experimental baseline is intentionally boring:
+
+- Linux x86_64
+- 1 vCPU minimum for functional deployment
+- 2 GB RAM recommended for the first 392-book experiments
+- persistent local disk for the command journal and snapshots
+- systemd
+- outbound network access for administration/deployment
+- no container runtime
+
+For a three-node HA experiment, use three independent VMs in the same region. Keep the journal on persistent storage. Do not put correctness state in ephemeral RAM.
+
+## Build and install
+
+On the VM:
 
 ```bash
-docker compose -f deploy/docker-compose.yml up --build
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config curl git
+git clone https://github.com/That-Tech-Geek/sovereign-exchange.git
+cd sovereign-exchange/exchange_core
+cargo build --release
+cd ..
+sudo bash deploy/install.sh
 ```
 
-Health is exposed on port 8080.
+The installer:
 
-## Kubernetes
+1. creates the unprivileged `exchange` service account;
+2. creates `/var/lib/sovereign-exchange`;
+3. installs the release binary under `/opt/sovereign-exchange/bin`;
+4. installs a hardened systemd unit;
+5. enables automatic restart;
+6. sends stdout/stderr to journald.
+
+## Operations
 
 ```bash
-kubectl apply -f deploy/k8s/exchange.yaml
-kubectl apply -f deploy/k8s/network-policy.yaml
+sudo systemctl status sovereign-exchange
+sudo systemctl restart sovereign-exchange
+sudo journalctl -u sovereign-exchange -f
+sudo journalctl -u sovereign-exchange --since "1 hour ago"
 ```
 
-The first cloud deployment intentionally runs **one** exchange replica. The current consensus implementation is not yet a multi-process network cluster, so deploying three pods as if they were HA would be misleading.
+The journal and snapshots live under:
 
-## Production stack roadmap
+```
+/var/lib/sovereign-exchange/
+```
 
-1. Network gateway for the native session protocol on a dedicated TCP endpoint.
-2. Three real exchange processes with durable Raft state and node-to-node transport.
-3. Leader fencing, quorum loss and network-partition certification.
-4. Restarted-node catch-up and state-fingerprint convergence.
-5. External market-data fanout and sequence recovery.
-6. Immutable journal/snapshot archival to object storage.
-7. Metrics/tracing/logging collection.
-8. Cloud load balancer, DNS, TLS and operator/admin plane.
-9. Capacity/load testing against the full network path.
+Back up that directory at the infrastructure boundary. Never copy a live journal by truncating or rewriting it in place.
 
-The exchange core must remain the source of truth; cloud services are control-plane, durability, observability and edge infrastructure, not matching-path dependencies.
+## Security boundary
+
+The service runs without root privileges and uses systemd filesystem/process hardening. The exchange process is the source of truth for matching and recovery. Cloud services may provide DNS, a load balancer, object storage, monitoring, or access control, but they must not become required dependencies for deterministic matching.
+
+## Roadmap to a real cloud exchange
+
+1. Native TCP client gateway around the existing session protocol.
+2. Networked three-process Raft transport.
+3. Durable Raft term/vote/log metadata.
+4. Leader fencing and stale-leader rejection.
+5. Real process network-partition certification.
+6. Restarted-node journal/snapshot catch-up and state-fingerprint convergence.
+7. Public TCP edge and leader-aware routing.
+8. Journal/snapshot archival.
+9. Cost-per-million-orders and VM resource benchmarks.
+
+The acceptance criterion is not "it runs on a VM". It is: **kill a node, lose a network path, restart it, recover durable state, converge with the cluster, and prove RPO/RTO with measurements.**
