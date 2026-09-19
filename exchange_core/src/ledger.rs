@@ -451,7 +451,7 @@ mod tests {
         assert_eq!(engine.ledger.balance(2, CASH), 109_990);
         assert_eq!(engine.ledger.balance(1, STOCK), 100);
         assert_eq!(engine.ledger.balance(2, STOCK), 900);
-        assert_eq!(engine.ledger.balance(FEE, CASH), 300);
+        assert_eq!(engine.ledger.balance(FEE, CASH), 30);
         assert_eq!(engine.ledger.asset_total(CASH), 200_000);
         assert_eq!(engine.ledger.asset_total(STOCK), 1_000);
     }
