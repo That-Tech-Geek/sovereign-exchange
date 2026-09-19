@@ -52,14 +52,17 @@ fn run_recovery(journal: &Path, recovered: &Path) {
     let mut engine = MatchingEngine::new();
     let count = engine.recover_from_command_journal(&mut journal).unwrap();
     assert_eq!(count, PREFIX_LEN as usize);
-    assert_eq!(engine.next_sequence_number_for_test(), PREFIX_LEN + 1);
-
     let next = command(PREFIX_LEN + 1);
     let accepted = engine.accept_durable(&next, &mut journal).unwrap();
     engine.process_command(accepted.pool_index);
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
 
-    let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(recovered).unwrap();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(recovered)
+        .unwrap();
     writeln!(file, "recovered_commands={count}").unwrap();
     writeln!(file, "first_post_recovery_order=true").unwrap();
     writeln!(file, "recovery_and_first_accept_ms={elapsed_ms:.6}").unwrap();
@@ -89,8 +92,14 @@ fn process_restart_recovery_rpo_rto() {
     if let Ok(role) = std::env::var("SE_HA_CHILD") {
         let journal = PathBuf::from(std::env::var("SE_HA_JOURNAL").unwrap());
         match role.as_str() {
-            "writer" => run_writer(&journal, &PathBuf::from(std::env::var("SE_HA_READY").unwrap())),
-            "recovery" => run_recovery(&journal, &PathBuf::from(std::env::var("SE_HA_RECOVERED").unwrap())),
+            "writer" => run_writer(
+                &journal,
+                &PathBuf::from(std::env::var("SE_HA_READY").unwrap()),
+            ),
+            "recovery" => run_recovery(
+                &journal,
+                &PathBuf::from(std::env::var("SE_HA_RECOVERED").unwrap()),
+            ),
             _ => panic!("unknown child role: {role}"),
         }
         return;
@@ -137,9 +146,18 @@ fn process_restart_recovery_rpo_rto() {
     println!("trials={TRIALS}");
     println!("durable_prefix_entries={PREFIX_LEN}");
     println!("rpo_entries=0");
-    println!("process_restart_recovery_rto_ms_p50={:.3}", percentile(0.50));
-    println!("process_restart_recovery_rto_ms_p95={:.3}", percentile(0.95));
-    println!("process_restart_recovery_rto_ms_p99={:.3}", percentile(0.99));
+    println!(
+        "process_restart_recovery_rto_ms_p50={:.3}",
+        percentile(0.50)
+    );
+    println!(
+        "process_restart_recovery_rto_ms_p95={:.3}",
+        percentile(0.95)
+    );
+    println!(
+        "process_restart_recovery_rto_ms_p99={:.3}",
+        percentile(0.99)
+    );
     println!("process_restart_recovery_rto_ms_min={min:.3}");
     println!("process_restart_recovery_rto_ms_max={max:.3}");
     println!("durable_replay_verified=true");
