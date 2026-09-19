@@ -33,7 +33,9 @@ fn elect(node: &mut RaftNode) {
 }
 
 fn replicate_one(leader: &mut RaftNode, follower: &mut RaftNode) {
-    let actions = leader.propose(command(leader.last_log_index().0 + 1)).unwrap();
+    let actions = leader
+        .propose(command(leader.last_log_index().0 + 1))
+        .unwrap();
     let request = actions
         .into_iter()
         .find_map(|a| match a {
@@ -131,9 +133,7 @@ fn measured_rpo_and_consensus_failover_rto() {
         if let RaftAction::AppendEntries { to, request } = action {
             if to == third.id() {
                 let response = third.handle_append_entries(request).unwrap();
-                candidate
-                    .handle_append_response(to, response)
-                    .unwrap();
+                candidate.handle_append_response(to, response).unwrap();
             }
         }
     }
