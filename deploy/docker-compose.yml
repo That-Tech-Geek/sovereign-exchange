@@ -13,12 +13,5 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    healthcheck:
-      test: ["CMD", "sh", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/8080"]
-      interval: 5s
-      timeout: 2s
-      retries: 12
-      start_period: 20s
-
 volumes:
   exchange-journal:
