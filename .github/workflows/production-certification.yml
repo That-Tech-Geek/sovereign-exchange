@@ -45,6 +45,9 @@ jobs:
       - name: Release certification
         run: cargo test --release --all-targets --all-features
 
+      - name: Oracle Always Free recovery capacity
+        run: cargo test --release --test oracle_always_free_recovery -- --nocapture
+
       - name: Determinism repetition
         shell: bash
         run: |

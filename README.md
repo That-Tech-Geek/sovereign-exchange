@@ -1,6 +1,6 @@
 # Sovereign Exchange
 
-A Rust exchange-core research project focused on deterministic matching, durable recovery, replication, and availability-first exchange infrastructure.
+A Rust exchange-core project for a centralized, deterministic sovereign securities exchange with durable recovery and availability-first infrastructure.
 
 > **Status: reference exchange. Ready for external engineering evaluation.**
 
@@ -38,7 +38,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## Architecture
 
-The intended recovery model is:
+The intended production recovery model is:
 
 ```
 LIVE MATCHER
@@ -56,6 +56,10 @@ RECONSTRUCTED MATCHER
 
 The core invariant is deterministic state reconstruction from an ordered durable input stream.
 
+## Deployment target
+
+The reference deployment targets Oracle Cloud Always Free Ampere A1 on a small Arm64 Linux VM. The production execution model is one authoritative exchange process with RAM-resident books, a durable command journal, snapshots, and systemd restart/recovery. Networked Raft is not required for the central execution path.
+
 ## Benchmarks
 
 Benchmark workflows measure throughput and latency on the actual CI runner. Hardware-dependent numbers must be treated as measurements, not guarantees.
@@ -63,3 +67,8 @@ Benchmark workflows measure throughput and latency on the actual CI runner. Hard
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+
+## Oracle Always Free recovery benchmark
+
+`cargo test --release --test oracle_always_free_recovery -- --nocapture` measures durable journal replay time, replay throughput, journal bytes per command, and Linux RSS at increasing journal sizes. The certification budget is replay in under 1 second per benchmark case.
