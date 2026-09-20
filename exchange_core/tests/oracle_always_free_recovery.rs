@@ -1,4 +1,6 @@
-use exchange_core::{ClientOrderId, CommandJournal, MatchingEngine, NewOrder, OrderCommand, OrderSide};
+use exchange_core::{
+    ClientOrderId, CommandJournal, MatchingEngine, NewOrder, OrderCommand, OrderSide,
+};
 use std::fs;
 use std::time::Instant;
 
@@ -56,9 +58,7 @@ fn oracle_always_free_recovery_capacity() {
         let replay_start = Instant::now();
         let mut journal = CommandJournal::open(&path).unwrap();
         let mut engine = MatchingEngine::new();
-        let recovered = engine
-            .recover_from_command_journal(&mut journal)
-            .unwrap();
+        let recovered = engine.recover_from_command_journal(&mut journal).unwrap();
         let replay_ms = replay_start.elapsed().as_secs_f64() * 1000.0;
 
         assert_eq!(recovered, size as usize);
