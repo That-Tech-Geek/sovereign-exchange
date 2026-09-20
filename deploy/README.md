@@ -6,38 +6,46 @@ There is deliberately **no Docker, Kubernetes, managed database, Redis, Kafka, o
 
 ## Current deployment boundary
 
-```
-                    Internet
-                       |
-                TCP gateway (future)
-                       |
-              +--------+--------+
-              |                 |
-        Exchange node A   Exchange node B/C
-        native Rust       native Rust
-              |
-       +------+------+
-       |             |
-   durable WAL    snapshots
-       |
+This deployment is intentionally a **single authoritative central exchange process**.
+
+```text
+Internet / client traffic
+          |
+     optional edge
+          |
+   +------+------+
+   |   exchange |
+   |   process  |
+   +------+------+
+          |
+     durable WAL
+          |
+      snapshots
+          |
    persistent disk
 ```
 
-The repository currently contains a deterministic exchange core plus a health server. The native client TCP gateway and real multi-process Raft transport are the next implementation stage. Until those are merged and certified, deployment must not be described as a networked HA exchange.
+There is no production requirement for networked Raft or multiple active exchange processes. Availability comes from durable state, deterministic replay, snapshots, systemd supervision, and fast process restart. Consensus modules remain available as research infrastructure but are not on the central execution path.
 
 ## VM requirements
 
-The experimental baseline is intentionally boring:
+The reference deployment target is **Oracle Cloud Always Free Ampere A1**.
 
-- Linux x86_64
-- 1 vCPU minimum for functional deployment
-- 2 GB RAM recommended for the first 392-book experiments
-- persistent local disk for the command journal and snapshots
+- Arm64 / `aarch64`
+- target budget: **2 OCPUs / 12 GB RAM** for the current Always Free allowance
+- Linux
+- persistent block volume for the journal and snapshots
 - systemd
-- outbound network access for administration/deployment
 - no container runtime
+- no managed database, Redis, Kafka, or other correctness dependency
 
-For a three-node HA experiment, use three independent VMs in the same region. Keep the journal on persistent storage. Do not put correctness state in ephemeral RAM.
+Keep the exchange process itself boring: one process, RAM-resident books, synchronous durable command journal, periodic snapshots, and automatic restart.
+
+The recovery-capacity benchmark is:
+
+`cargo test --release --test oracle_always_free_recovery -- --nocapture`
+
+It measures journal size, bytes per command, replay throughput, replay time, and Linux RSS across increasing durable journal sizes. The acceptance budget is replay of each benchmark case in under 1 second.
 
 ## Build and install
 
@@ -83,16 +91,13 @@ Back up that directory at the infrastructure boundary. Never copy a live journal
 
 The service runs without root privileges and uses systemd filesystem/process hardening. The exchange process is the source of truth for matching and recovery. Cloud services may provide DNS, a load balancer, object storage, monitoring, or access control, but they must not become required dependencies for deterministic matching.
 
-## Roadmap to a real cloud exchange
+## Roadmap
 
-1. Native TCP client gateway around the existing session protocol.
-2. Networked three-process Raft transport.
-3. Durable Raft term/vote/log metadata.
-4. Leader fencing and stale-leader rejection.
-5. Real process network-partition certification.
-6. Restarted-node journal/snapshot catch-up and state-fingerprint convergence.
-7. Public TCP edge and leader-aware routing.
-8. Journal/snapshot archival.
-9. Cost-per-million-orders and VM resource benchmarks.
+1. Native client/API gateway on the central process.
+2. Production readiness/liveness separation.
+3. Graceful shutdown with durable flush before exit.
+4. Snapshot cadence and journal archival.
+5. Oracle VM resource, disk, and cost-per-million-order measurements.
+6. External backup/restore drills using object storage without making object storage a matching dependency.
 
-The acceptance criterion is not "it runs on a VM". It is: **kill a node, lose a network path, restart it, recover durable state, converge with the cluster, and prove RPO/RTO with measurements.**
+The acceptance criterion is: **kill the process, restart it, replay durable state, accept the first post-recovery order, and prove the recovery budget with measurements.**
