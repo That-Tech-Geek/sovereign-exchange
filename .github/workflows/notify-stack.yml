@@ -1,0 +1,21 @@
+name: Notify sovereign-exchange-stack
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch exact core release
+        env:
+          GH_TOKEN: ${{ secrets.STACK_DISPATCH_TOKEN }}
+          CORE_VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          test -n "$GH_TOKEN"
+          SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${CORE_VERSION}" --jq '.object.sha')"
+          gh api             --method POST             -H "Accept: application/vnd.github+json"             "/repos/That-Tech-Geek/sovereign-exchange-stack/dispatches"             -f event_type='core-release'             -f client_payload[core_repo]="${GITHUB_REPOSITORY}"             -f client_payload[core_sha]="$SHA"             -f client_payload[core_version]="$CORE_VERSION"             -f client_payload[contract_version]='1'
