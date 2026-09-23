@@ -1,9 +1,12 @@
 name: Core release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Exact semver expected in exchange_core/Cargo.toml (X.Y.Z)
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,19 +21,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Certification
         run: cargo test --release --all-targets --all-features
-      - name: Read core version
+      - name: Validate release version
         id: version
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
         run: |
           VERSION="$(sed -n 's/^version = "\([^"]*\)"/\1/p' exchange_core/Cargo.toml | head -1)"
-          test -n "$VERSION"
+          test "$VERSION" = "$EXPECTED_VERSION"
+          printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      - name: Create release
+      - name: Create immutable release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if gh release view "v${VERSION}" >/dev/null 2>&1; then
             echo "v${VERSION} already exists; refusing to mutate it."
-            exit 0
+            exit 1
           fi
-          gh release create "v${VERSION}"             --target "$GITHUB_SHA"             --title "sovereign-exchange core v${VERSION}"             --generate-notes
+          gh release create "v${VERSION}" --target "$GITHUB_SHA" --title "sovereign-exchange core v${VERSION}" --generate-notes
