@@ -340,7 +340,7 @@ impl MatchingEngine {
                 return 0;
             }
             x if x == CommandKind::Replace as u8 => {
-                let target = ClientOrderId(self.pool.data[idx as usize].prev as u64);
+                let target = ClientOrderId(self.pool.data[idx as usize].prev() as u64);
                 let exchange_order_id =
                     ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id);
                 if !self.cancel_order(instrument_id, account_id, target) {
