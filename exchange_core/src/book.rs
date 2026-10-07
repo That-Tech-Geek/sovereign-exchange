@@ -63,7 +63,7 @@ impl OrderBook {
 
     #[inline(always)]
     pub fn insert_limit(&mut self, idx: u32, pool: &mut OrderPool) {
-        let side = pool.data[idx as usize].side;
+        let side = pool.data[idx as usize].side();
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let key = OrderKey {
