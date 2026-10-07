@@ -47,7 +47,7 @@ jobs:
           fi
 
           echo "Running $TEST_BIN with memory.max=$LIMIT bytes"
-          sudo sh -c "echo \$\$ > '$CGROUP/cgroup.procs'; exec '$TEST_BIN' --nocapture"
+          sudo sh -c "echo \$\$ > '$CGROUP/cgroup.procs'; exec '$TEST_BIN' --nocapture --test-threads=1"
 
           PEAK="$(sudo cat "$CGROUP/memory.peak")"
           CURRENT="$(sudo cat "$CGROUP/memory.current")"
