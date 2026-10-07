@@ -16,24 +16,34 @@ pub enum PoolError {
     Exhausted,
 }
 
-#[repr(C, align(64))]
+/// Compact hot-path order representation.
+///
+/// The old representation was 64-byte cache-line aligned, making the
+/// 5,000,000-slot pool alone consume >300 MiB. The exchange contract requires
+/// the full pool to coexist with the rest of the matcher inside the 225 MiB
+/// runtime envelope, so immutable command metadata is kept in the command
+/// journal while only matching-state fields live here.
+///
+/// packed(4) keeps u64 fields 4-byte aligned in the backing array; accesses
+/// remain by-value/place accesses and never create references to packed fields.
+#[repr(C, packed(4))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
     pub exchange_order_id: u64,
     pub client_order_id: u64,
+    pub sequence_number: u64,
     pub account_id: u32,
-    pub instrument_id: u16,
-    pub side: u8,
-    pub command_kind: u8,
     pub price: u32,
-    pub quantity: u32,
     pub remaining: u32,
     pub next: u32,
     pub prev: u32,
-    pub sequence_number: u64,
-    pub client_timestamp: u64,
+    pub instrument_id: u16,
+    pub side: u8,
+    pub command_kind: u8,
     pub replace_target_client_order_id: u64,
 }
+
+const _: () = assert!(std::mem::size_of::<Order>() == 44);
 
 pub struct OrderPool {
     pub data: Vec<Order>,
@@ -91,10 +101,8 @@ impl OrderPool {
                 order.side = order_cmd.side.wire_value();
                 order.command_kind = CommandKind::New as u8;
                 order.price = order_cmd.price;
-                order.quantity = order_cmd.quantity;
                 order.remaining = order_cmd.quantity;
                 order.sequence_number = sequence_number.0;
-                order.client_timestamp = order_cmd.client_timestamp;
             }
             OrderCommand::Cancel(cancel_cmd) => {
                 order.client_order_id = cancel_cmd.client_order_id.0;
@@ -110,10 +118,8 @@ impl OrderPool {
                 order.side = replace_cmd.side.wire_value();
                 order.command_kind = CommandKind::Replace as u8;
                 order.price = replace_cmd.price;
-                order.quantity = replace_cmd.quantity;
                 order.remaining = replace_cmd.quantity;
                 order.sequence_number = sequence_number.0;
-                order.client_timestamp = replace_cmd.client_timestamp;
                 order.replace_target_client_order_id = replace_cmd.target_client_order_id.0;
             }
         }
