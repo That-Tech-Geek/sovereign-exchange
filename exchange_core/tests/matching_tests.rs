@@ -52,11 +52,11 @@ fn test_pool_stores_distinct_client_and_exchange_ids() {
         .allocate_from_packet(&packet, ExchangeOrderId(9001))
         .unwrap();
 
-    assert_eq!(pool.get(idx).client_order_id, 42);
-    assert_eq!(pool.get(idx).exchange_order_id, 9001);
+    assert_eq!(pool.get(idx).client_order_id(), 42);
+    assert_eq!(pool.get(idx).exchange_order_id(), 9001);
     assert_ne!(
-        pool.get(idx).client_order_id,
-        pool.get(idx).exchange_order_id
+        pool.get(idx).client_order_id(),
+        pool.get(idx).exchange_order_id()
     );
 
     pool.deallocate(idx);
@@ -270,7 +270,7 @@ fn test_basic_limit_matching_and_fifo() {
     assert_eq!(engine.trades[0].seller, 101);
 
     let ask_idx = engine.book(instrument).unwrap().best_ask_head().unwrap();
-    assert_eq!(engine.pool.get(ask_idx).remaining, 50);
+    assert_eq!(engine.pool.get(ask_idx).remaining(), 50);
 }
 
 #[test]
