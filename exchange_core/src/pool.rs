@@ -26,9 +26,9 @@ pub enum PoolError {
 #[repr(C, packed(1))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    exchange_order_id: [u8; 6],
+    exchange_order_id: [u8; 5],
     pub client_order_id: u64,
-    pub sequence_number: u64,
+    sequence_number: [u8; 7],
     pub account_id: u32,
     pub price: u32,
     pub remaining: u32,
@@ -36,9 +36,11 @@ pub struct Order {
     meta: [u8; 2],
 }
 
-const _: () = assert!(std::mem::size_of::<Order>() == 42);
-pub const MAX_PACKED_EXCHANGE_ORDER_ID: u64 = (1u64 << 48) - 1;
+const _: () = assert!(std::mem::size_of::<Order>() == 40);
+pub const MAX_PACKED_EXCHANGE_ORDER_ID: u64 = (1u64 << 40) - 1;
+pub const MAX_PACKED_SEQUENCE_NUMBER: u64 = (1u64 << 56) - 1;
 const EXCHANGE_ID_MASK: u64 = MAX_PACKED_EXCHANGE_ORDER_ID;
+const SEQUENCE_MASK: u64 = MAX_PACKED_SEQUENCE_NUMBER;
 
 const LINK_MASK: u32 = (1 << 23) - 1;
 const FREE_SENTINEL: u32 = LINK_MASK;
@@ -52,7 +54,7 @@ impl Order {
     #[inline(always)]
     pub fn exchange_order_id(&self) -> u64 {
         let mut b = [0u8; 8];
-        b[..6].copy_from_slice(&self.exchange_order_id);
+        b[..5].copy_from_slice(&self.exchange_order_id);
         u64::from_le_bytes(b)
     }
 
@@ -60,7 +62,20 @@ impl Order {
     fn set_exchange_order_id(&mut self, value: u64) {
         assert!(value <= EXCHANGE_ID_MASK);
         self.exchange_order_id
-            .copy_from_slice(&value.to_le_bytes()[..6]);
+            .copy_from_slice(&value.to_le_bytes()[..5]);
+    }
+
+    #[inline(always)]
+    pub fn sequence_number(&self) -> u64 {
+        let mut b = [0u8; 8];
+        b[..7].copy_from_slice(&self.sequence_number);
+        u64::from_le_bytes(b)
+    }
+
+    #[inline(always)]
+    fn set_sequence_number(&mut self, value: u64) {
+        assert!(value <= SEQUENCE_MASK);
+        self.sequence_number.copy_from_slice(&value.to_le_bytes()[..7]);
     }
 
     #[inline(always)]
@@ -212,13 +227,13 @@ impl OrderPool {
                 );
                 order.price = order_cmd.price;
                 order.remaining = order_cmd.quantity;
-                order.sequence_number = sequence_number.0;
+                order.set_sequence_number(sequence_number.0);
             }
             OrderCommand::Cancel(cancel_cmd) => {
                 order.client_order_id = cancel_cmd.client_order_id.0;
                 order.account_id = cancel_cmd.account_id;
                 order.set_meta(cancel_cmd.instrument_id, 0, CommandKind::Cancel);
-                order.sequence_number = sequence_number.0;
+                order.set_sequence_number(sequence_number.0);
             }
             OrderCommand::Replace(replace_cmd) => {
                 if replace_cmd.target_client_order_id.0 > u32::MAX as u64 {
