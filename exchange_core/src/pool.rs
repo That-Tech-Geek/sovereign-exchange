@@ -48,6 +48,21 @@ const KIND_MASK: u32 = 0x3;
 
 impl Order {
     #[inline(always)]
+    pub fn exchange_order_id(&self) -> u64 {
+        self.exchange_order_id
+    }
+
+    #[inline(always)]
+    pub fn client_order_id(&self) -> u64 {
+        self.client_order_id
+    }
+
+    #[inline(always)]
+    pub fn remaining(&self) -> u32 {
+        self.remaining
+    }
+
+    #[inline(always)]
     fn links_u64(&self) -> u64 {
         let mut b = [0u8; 8];
         b[..6].copy_from_slice(&self.links);
