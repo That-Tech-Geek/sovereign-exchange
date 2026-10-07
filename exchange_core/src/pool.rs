@@ -23,7 +23,7 @@ pub enum PoolError {
 /// one u32. For a pending Replace command, the prev field temporarily carries
 /// the target client-order ID; it is cleared before the replacement enters the
 /// book and resumes its normal FIFO-link role.
-#[repr(C, packed(4))]
+#[repr(C, packed(1))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
     pub exchange_order_id: u64,
