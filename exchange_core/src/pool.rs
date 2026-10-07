@@ -201,8 +201,15 @@ impl OrderPool {
     #[inline(always)]
     pub fn allocate(&mut self) -> Result<u32, PoolError> {
         let idx;
-        if self.free_head == FREE_SENTINEL || self.free_head == u32::MAX {
+        if self.free_head == u32::MAX {
             return Err(PoolError::Exhausted);
+        } else if self.free_head == FREE_SENTINEL {
+            if self.next_unallocated > MAX_ORDERS as u32 {
+                return Err(PoolError::Exhausted);
+            }
+            idx = self.next_unallocated;
+            self.data.push(Order::default());
+            self.next_unallocated += 1;
         } else if self.free_head < self.data.len() as u32 {
             idx = self.free_head;
             self.free_head = self.data[idx as usize].next();
