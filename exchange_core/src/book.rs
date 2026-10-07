@@ -91,7 +91,7 @@ impl OrderBook {
 
     #[inline(always)]
     pub fn remove_order(&mut self, idx: u32, pool: &mut OrderPool) {
-        let side = pool.data[idx as usize].side;
+        let side = pool.data[idx as usize].side();
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let prev = pool.data[idx as usize].prev;
