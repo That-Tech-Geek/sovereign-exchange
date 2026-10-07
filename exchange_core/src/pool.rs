@@ -249,7 +249,7 @@ impl OrderPool {
                 );
                 order.price = replace_cmd.price;
                 order.remaining = replace_cmd.quantity;
-                order.sequence_number = sequence_number.0;
+                order.set_sequence_number(sequence_number.0);
                 order.set_prev(replace_cmd.target_client_order_id.0 as u32);
             }
         }
