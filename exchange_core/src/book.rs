@@ -80,8 +80,8 @@ impl OrderBook {
         if level.tail == NULL_ORDER {
             level.head = idx;
         } else {
-            pool.data[level.tail as usize].next = idx;
-            pool.data[idx as usize].prev = level.tail;
+            pool.data[level.tail as usize].set_next(idx);
+            pool.data[idx as usize].set_prev(level.tail);
         }
         level.tail = idx;
         level.volume = level.volume.saturating_add(remaining as u64);
@@ -94,7 +94,7 @@ impl OrderBook {
         let side = pool.data[idx as usize].side();
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
-        let prev = pool.data[idx as usize].prev;
+        let prev = pool.data[idx as usize].prev();
         let next = pool.data[idx as usize].next;
         let key = OrderKey {
             account_id: pool.data[idx as usize].account_id,
@@ -110,12 +110,12 @@ impl OrderBook {
 
         if let Some(level) = map.get_mut(&price) {
             if prev != NULL_ORDER {
-                pool.data[prev as usize].next = next;
+                pool.data[prev as usize].set_next(next);
             } else {
                 level.head = next;
             }
             if next != NULL_ORDER {
-                pool.data[next as usize].prev = prev;
+                pool.data[next as usize].set_prev(prev);
             } else {
                 level.tail = prev;
             }
