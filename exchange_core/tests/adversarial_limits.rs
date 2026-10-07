@@ -17,15 +17,15 @@ fn packet(id: u64, account: u32, side: u8, price: u32, quantity: u32) -> OrderPa
 
 #[test]
 fn pool_reaches_declared_capacity_without_panicking() {
-    // Index 0 is reserved as NULL_ORDER, so the current implementation has
-    // MAX_ORDERS - 1 usable slots. This test records the actual boundary.
+    // The contract declares MAX_ORDERS usable preallocated slots. Index 0 must not
+    // silently reduce that public capacity.
     let mut pool = OrderPool::new();
     let mut allocated = 0usize;
     while pool.allocate().is_ok() {
         allocated += 1;
     }
-    assert_eq!(allocated, MAX_ORDERS - 1);
-    assert_eq!(pool.allocated_count as usize, MAX_ORDERS - 1);
+    assert_eq!(allocated, MAX_ORDERS);
+    assert_eq!(pool.allocated_count as usize, MAX_ORDERS);
     assert!(pool.allocate().is_err());
 }
 
