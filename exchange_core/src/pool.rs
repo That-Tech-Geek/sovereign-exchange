@@ -33,7 +33,7 @@ pub struct Order {
     pub price: u32,
     pub remaining: u32,
     links: [u8; 6],
-    meta: [u8; 3],
+    meta: [u8; 2],
 }
 
 const _: () = assert!(std::mem::size_of::<Order>() == 42);
@@ -110,13 +110,13 @@ impl Order {
 
     #[inline(always)]
     fn meta_u32(&self) -> u32 {
-        u32::from_le_bytes([self.meta[0], self.meta[1], self.meta[2], 0])
+        u16::from_le_bytes([self.meta[0], self.meta[1]]) as u32
     }
 
     #[inline(always)]
     fn set_meta_u32(&mut self, value: u32) {
-        let b = value.to_le_bytes();
-        self.meta.copy_from_slice(&b[..3]);
+        let b = (value as u16).to_le_bytes();
+        self.meta.copy_from_slice(&b);
     }
 
     #[inline(always)]
