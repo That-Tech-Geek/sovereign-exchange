@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DepthLevel {
     pub price: u32,
-    pub quantity: u32,
+    pub quantity: u64,
     pub order_count: u32,
 }
 
