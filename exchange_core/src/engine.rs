@@ -320,7 +320,7 @@ impl MatchingEngine {
 
         let instrument_id = self.pool.data[idx as usize].instrument_id();
         let command_kind = self.pool.data[idx as usize].command_kind();
-        let sequence_number = SequenceNumber(self.pool.data[idx as usize].sequence_number);
+        let sequence_number = SequenceNumber(self.pool.data[idx as usize].sequence_number());
         let account_id = self.pool.data[idx as usize].account_id;
         let client_order_id = ClientOrderId(self.pool.data[idx as usize].client_order_id);
 
@@ -548,12 +548,12 @@ impl MatchingEngine {
                 seller_exchange_order_id: pool.data[ask_idx as usize].exchange_order_id(),
                 buyer_client_order_id: pool.data[incoming_idx as usize].client_order_id,
                 seller_client_order_id: pool.data[ask_idx as usize].client_order_id,
-                buyer_sequence_number: pool.data[incoming_idx as usize].sequence_number,
-                seller_sequence_number: pool.data[ask_idx as usize].sequence_number,
+                buyer_sequence_number: pool.data[incoming_idx as usize].sequence_number(),
+                seller_sequence_number: pool.data[ask_idx as usize].sequence_number(),
                 // Logical exchange time is derived from the deterministic
                 // command sequence. Never consult wall-clock time in the
                 // matching path.
-                timestamp: pool.data[incoming_idx as usize].sequence_number,
+                timestamp: pool.data[incoming_idx as usize].sequence_number(),
             });
 
             if pool.data[ask_idx as usize].remaining == 0 {
@@ -604,12 +604,12 @@ impl MatchingEngine {
                 seller_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id(),
                 buyer_client_order_id: pool.data[bid_idx as usize].client_order_id,
                 seller_client_order_id: pool.data[incoming_idx as usize].client_order_id,
-                buyer_sequence_number: pool.data[bid_idx as usize].sequence_number,
-                seller_sequence_number: pool.data[incoming_idx as usize].sequence_number,
+                buyer_sequence_number: pool.data[bid_idx as usize].sequence_number(),
+                seller_sequence_number: pool.data[incoming_idx as usize].sequence_number(),
                 // Logical exchange time is derived from the deterministic
                 // command sequence. Never consult wall-clock time in the
                 // matching path.
-                timestamp: pool.data[incoming_idx as usize].sequence_number,
+                timestamp: pool.data[incoming_idx as usize].sequence_number(),
             });
 
             if pool.data[bid_idx as usize].remaining == 0 {
