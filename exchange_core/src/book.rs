@@ -95,7 +95,7 @@ impl OrderBook {
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let prev = pool.data[idx as usize].prev();
-        let next = pool.data[idx as usize].next;
+        let next = pool.data[idx as usize].next();
         let key = OrderKey {
             account_id: pool.data[idx as usize].account_id,
             client_order_id: ClientOrderId(pool.data[idx as usize].client_order_id),
