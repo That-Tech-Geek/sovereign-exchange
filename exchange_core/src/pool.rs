@@ -109,7 +109,7 @@ impl Order {
     }
 
     #[inline(always)]
-    fn set_meta(&mut self, instrument_id: u16, side: u8, command_kind: CommandKind) {
+    pub fn set_meta(&mut self, instrument_id: u16, side: u8, command_kind: CommandKind) {
         assert!((instrument_id as u32) <= INSTRUMENT_MASK);
         self.set_meta_u32(
             instrument_id as u32
