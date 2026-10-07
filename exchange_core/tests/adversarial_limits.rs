@@ -1,6 +1,6 @@
-use exchange_core::{MatchingEngine, OrderPacket, OrderPool};
 use exchange_core::constants::{MAX_ORDERS, MAX_PRICE_LEVELS, RING_BUFFER_SIZE};
 use exchange_core::ring::OrderQueue;
+use exchange_core::{MatchingEngine, OrderPacket, OrderPool};
 
 fn packet(id: u64, account: u32, side: u8, price: u32, quantity: u32) -> OrderPacket {
     OrderPacket {
@@ -32,7 +32,9 @@ fn pool_reaches_declared_capacity_without_panicking() {
 #[test]
 fn price_level_volume_does_not_wrap_at_u32() {
     let mut engine = MatchingEngine::new();
-    let a = engine.accept_order(&packet(1, 1, 1, 10_000, u32::MAX)).unwrap();
+    let a = engine
+        .accept_order(&packet(1, 1, 1, 10_000, u32::MAX))
+        .unwrap();
     engine.process_order(a.pool_index);
     let b = engine.accept_order(&packet(2, 2, 1, 10_000, 1)).unwrap();
     engine.process_order(b.pool_index);
