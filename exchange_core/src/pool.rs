@@ -172,6 +172,7 @@ pub struct OrderPool {
     pub data: Vec<Order>,
     pub free_head: u32,
     pub allocated_count: u32,
+    next_unallocated: u32,
 }
 
 impl Default for OrderPool {
@@ -182,27 +183,34 @@ impl Default for OrderPool {
 
 impl OrderPool {
     pub fn new() -> Self {
+        // Reserve the full logical pool address space, but lazily commit order
+        // records as they are admitted. This preserves the 5,000,000-slot
+        // capacity without forcing an idle exchange to consume the entire
+        // memory envelope.
         let mut data = Vec::with_capacity(MAX_ORDERS + 1);
-        data.resize(MAX_ORDERS + 1, Order::default());
-        for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS).skip(1) {
-            order.set_next((i + 1) as u32);
-        }
-        data[MAX_ORDERS].set_next(FREE_SENTINEL);
+        data.push(Order::default());
         Self {
             data,
-            free_head: 1,
+            free_head: FREE_SENTINEL,
             allocated_count: 0,
+            next_unallocated: 1,
         }
     }
 
     #[inline(always)]
     pub fn allocate(&mut self) -> Result<u32, PoolError> {
-        let idx = self.free_head;
-        if idx == FREE_SENTINEL {
+        let idx;
+        if self.free_head != FREE_SENTINEL {
+            idx = self.free_head;
+            self.free_head = self.data[idx as usize].next();
+            self.data[idx as usize] = Order::default();
+        } else if self.next_unallocated <= MAX_ORDERS as u32 {
+            idx = self.next_unallocated;
+            self.data.push(Order::default());
+            self.next_unallocated += 1;
+        } else {
             return Err(PoolError::Exhausted);
         }
-        self.free_head = self.data[idx as usize].next();
-        self.data[idx as usize] = Order::default();
         self.allocated_count += 1;
         Ok(idx)
     }
@@ -278,6 +286,11 @@ impl OrderPool {
             client_timestamp: packet.timestamp,
         });
         self.allocate_from_command(&command, exchange_order_id, SequenceNumber::FIRST)
+    }
+
+    #[inline(always)]
+    pub fn max_capacity(&self) -> usize {
+        MAX_ORDERS
     }
 
     #[inline(always)]
