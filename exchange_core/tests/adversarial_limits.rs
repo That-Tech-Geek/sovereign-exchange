@@ -1,3 +1,4 @@
+use exchange_core::command::{OrderCommand, OrderSide, ReplaceOrder};
 use exchange_core::constants::{MAX_ORDERS, MAX_PRICE_LEVELS, RING_BUFFER_SIZE};
 use exchange_core::ring::OrderQueue;
 use exchange_core::{MatchingEngine, OrderPacket, OrderPool};
