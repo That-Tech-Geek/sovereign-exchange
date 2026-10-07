@@ -8,7 +8,7 @@ use crate::pool::OrderPool;
 pub struct PriceLevel {
     pub head: u32,
     pub tail: u32,
-    pub volume: u32,
+    pub volume: u64,
     pub order_count: u32,
 }
 
@@ -84,7 +84,7 @@ impl OrderBook {
             pool.data[idx as usize].prev = level.tail;
         }
         level.tail = idx;
-        level.volume += remaining;
+        level.volume = level.volume.saturating_add(remaining as u64);
         level.order_count += 1;
         self.order_map.insert(key, idx);
     }
@@ -119,7 +119,7 @@ impl OrderBook {
             } else {
                 level.tail = prev;
             }
-            level.volume = level.volume.saturating_sub(remaining);
+            level.volume = level.volume.saturating_sub(remaining as u64);
             level.order_count = level.order_count.saturating_sub(1);
             if level.head == NULL_ORDER || level.order_count == 0 {
                 map.remove(&price);
