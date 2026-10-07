@@ -39,6 +39,7 @@ pub struct Order {
 const _: () = assert!(std::mem::size_of::<Order>() == 45);
 
 const LINK_MASK: u32 = (1 << 23) - 1;
+const FREE_SENTINEL: u32 = LINK_MASK;
 const INSTRUMENT_MASK: u32 = 0x01FF;
 const SIDE_SHIFT: u32 = 9;
 const KIND_SHIFT: u32 = 11;
@@ -145,7 +146,7 @@ impl OrderPool {
         for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS).skip(1) {
             order.set_next((i + 1) as u32);
         }
-        data[MAX_ORDERS].set_next(u32::MAX);
+        data[MAX_ORDERS].set_next(FREE_SENTINEL);
         Self {
             data,
             free_head: 1,
@@ -156,7 +157,7 @@ impl OrderPool {
     #[inline(always)]
     pub fn allocate(&mut self) -> Result<u32, PoolError> {
         let idx = self.free_head;
-        if idx == u32::MAX {
+        if idx == FREE_SENTINEL {
             return Err(PoolError::Exhausted);
         }
         self.free_head = self.data[idx as usize].next();
