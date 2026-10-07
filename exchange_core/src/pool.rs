@@ -75,7 +75,8 @@ impl Order {
     #[inline(always)]
     fn set_sequence_number(&mut self, value: u64) {
         assert!(value <= SEQUENCE_MASK);
-        self.sequence_number.copy_from_slice(&value.to_le_bytes()[..7]);
+        self.sequence_number
+            .copy_from_slice(&value.to_le_bytes()[..7]);
     }
 
     #[inline(always)]
