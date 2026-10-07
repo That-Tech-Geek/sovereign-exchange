@@ -315,8 +315,8 @@ impl MatchingEngine {
         self.last_events.clear();
         self.event_count = 0;
 
-        let instrument_id = self.pool.data[idx as usize].instrument_id;
-        let command_kind = self.pool.data[idx as usize].command_kind;
+        let instrument_id = self.pool.data[idx as usize].instrument_id();
+        let command_kind = self.pool.data[idx as usize].command_kind();
         let sequence_number = SequenceNumber(self.pool.data[idx as usize].sequence_number);
         let account_id = self.pool.data[idx as usize].account_id;
         let client_order_id = ClientOrderId(self.pool.data[idx as usize].client_order_id);
@@ -340,15 +340,15 @@ impl MatchingEngine {
                 return 0;
             }
             x if x == CommandKind::Replace as u8 => {
-                let target =
-                    ClientOrderId(self.pool.data[idx as usize].replace_target_client_order_id);
+                let target = ClientOrderId(self.pool.data[idx as usize].prev as u64);
                 let exchange_order_id =
                     ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id);
                 if !self.cancel_order(instrument_id, account_id, target) {
                     self.pool.deallocate(idx);
                     return 0;
                 }
-                self.pool.data[idx as usize].command_kind = CommandKind::New as u8;
+                self.pool.data[idx as usize].set_command_kind_new();
+                self.pool.data[idx as usize].prev = 0;
                 self.push_event(ExchangeEvent::OrderReplaced {
                     instrument_id,
                     account_id,
@@ -365,7 +365,7 @@ impl MatchingEngine {
             }
         }
 
-        let side = self.pool.data[idx as usize].side;
+        let side = self.pool.data[idx as usize].side();
         if side > 1 {
             self.pool.deallocate(idx);
             return 0;
@@ -449,7 +449,7 @@ impl MatchingEngine {
                     key.account_id,
                     key.client_order_id.0,
                     order.exchange_order_id,
-                    order.side,
+                    order.side(),
                     order.price,
                     order.remaining,
                     order.sequence_number,
