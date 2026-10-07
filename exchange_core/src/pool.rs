@@ -59,7 +59,8 @@ impl Order {
     #[inline(always)]
     fn set_exchange_order_id(&mut self, value: u64) {
         assert!(value <= EXCHANGE_ID_MASK);
-        self.exchange_order_id.copy_from_slice(&value.to_le_bytes()[..6]);
+        self.exchange_order_id
+            .copy_from_slice(&value.to_le_bytes()[..6]);
     }
 
     #[inline(always)]
