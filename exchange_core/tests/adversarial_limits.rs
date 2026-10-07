@@ -20,7 +20,7 @@ fn packet(id: u64, account: u32, side: u8, price: u32, quantity: u32) -> OrderPa
 fn pool_reaches_declared_capacity_and_rejects_without_advancing_sequence() {
     let mut pool = OrderPool::new();
     assert_eq!(pool.max_capacity(), MAX_ORDERS);
-    assert!(pool.data.capacity() >= MAX_ORDERS + 1);
+    assert!(pool.data.capacity() > MAX_ORDERS);
 
     // Physical commitment is bounded by the memory gate; the logical pool
     // remains a 5,000,000-slot reservation.
@@ -91,7 +91,7 @@ fn partial_fill_cancel_and_level_accounting_remain_consistent() {
     assert_eq!(level.order_count, 1);
 
     assert!(engine.cancel_order(0, 10, exchange_core::order::ClientOrderId(10)));
-    assert!(engine.book(0).unwrap().asks.get(&100).is_none());
+    assert!(!engine.book(0).unwrap().asks.contains_key(&100));
     assert_eq!(engine.pool.allocated_count, 0);
 }
 
