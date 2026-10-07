@@ -37,7 +37,8 @@ pub struct Order {
 }
 
 const _: () = assert!(std::mem::size_of::<Order>() == 42);
-const EXCHANGE_ID_MASK: u64 = (1u64 << 48) - 1;
+pub const MAX_PACKED_EXCHANGE_ORDER_ID: u64 = (1u64 << 48) - 1;
+const EXCHANGE_ID_MASK: u64 = MAX_PACKED_EXCHANGE_ORDER_ID;
 
 const LINK_MASK: u32 = (1 << 23) - 1;
 const FREE_SENTINEL: u32 = LINK_MASK;
