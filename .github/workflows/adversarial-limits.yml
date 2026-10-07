@@ -1,0 +1,20 @@
+name: Exchange Adversarial Limits
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  limits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run adversarial capacity tests
+        working-directory: exchange_core
+        run: cargo test --release --test adversarial_limits -- --nocapture
