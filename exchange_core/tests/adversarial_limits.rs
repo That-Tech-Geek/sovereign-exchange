@@ -41,7 +41,7 @@ fn price_level_volume_does_not_wrap_at_u32() {
 
     let level = engine.book(0).unwrap().asks.get(&10_000).unwrap();
     assert!(
-        level.volume as u64 >= u32::MAX as u64,
+        level.volume >= u32::MAX as u64,
         "price-level aggregate wrapped: volume={}",
         level.volume
     );
