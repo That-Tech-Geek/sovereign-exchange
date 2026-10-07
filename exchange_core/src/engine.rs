@@ -342,7 +342,7 @@ impl MatchingEngine {
             x if x == CommandKind::Replace as u8 => {
                 let target = ClientOrderId(self.pool.data[idx as usize].prev() as u64);
                 let exchange_order_id =
-                    ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id);
+                    ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id());
                 if !self.cancel_order(instrument_id, account_id, target) {
                     self.pool.deallocate(idx);
                     return 0;
@@ -375,7 +375,7 @@ impl MatchingEngine {
             instrument_id,
             account_id,
             client_order_id,
-            exchange_order_id: ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id),
+            exchange_order_id: ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id()),
             sequence_number,
         });
 
@@ -448,7 +448,7 @@ impl MatchingEngine {
                 orders.push((
                     key.account_id,
                     key.client_order_id.0,
-                    order.exchange_order_id,
+                    order.exchange_order_id(),
                     order.side(),
                     order.price,
                     order.remaining,
@@ -541,8 +541,8 @@ impl MatchingEngine {
                 price: ask_price,
                 qty: fill_qty,
                 instrument_id,
-                buyer_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id,
-                seller_exchange_order_id: pool.data[ask_idx as usize].exchange_order_id,
+                buyer_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id(),
+                seller_exchange_order_id: pool.data[ask_idx as usize].exchange_order_id(),
                 buyer_client_order_id: pool.data[incoming_idx as usize].client_order_id,
                 seller_client_order_id: pool.data[ask_idx as usize].client_order_id,
                 buyer_sequence_number: pool.data[incoming_idx as usize].sequence_number,
@@ -597,8 +597,8 @@ impl MatchingEngine {
                 price: bid_price,
                 qty: fill_qty,
                 instrument_id,
-                buyer_exchange_order_id: pool.data[bid_idx as usize].exchange_order_id,
-                seller_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id,
+                buyer_exchange_order_id: pool.data[bid_idx as usize].exchange_order_id(),
+                seller_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id(),
                 buyer_client_order_id: pool.data[bid_idx as usize].client_order_id,
                 seller_client_order_id: pool.data[incoming_idx as usize].client_order_id,
                 buyer_sequence_number: pool.data[bid_idx as usize].sequence_number,
