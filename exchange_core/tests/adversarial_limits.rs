@@ -83,14 +83,10 @@ fn price_level_volume_does_not_wrap_at_u32() {
 fn partial_fill_cancel_and_level_accounting_remain_consistent() {
     let mut engine = MatchingEngine::new();
 
-    let ask = engine
-        .accept_order(&packet(10, 10, 1, 100, 100))
-        .unwrap();
+    let ask = engine.accept_order(&packet(10, 10, 1, 100, 100)).unwrap();
     engine.process_order(ask.pool_index);
 
-    let bid = engine
-        .accept_order(&packet(11, 11, 0, 100, 40))
-        .unwrap();
+    let bid = engine.accept_order(&packet(11, 11, 0, 100, 40)).unwrap();
     assert_eq!(engine.process_order(bid.pool_index), 1);
 
     let level = engine.book(0).unwrap().asks.get(&100).unwrap();
@@ -106,14 +102,10 @@ fn partial_fill_cancel_and_level_accounting_remain_consistent() {
 fn replace_preserves_identity_and_pool_accounting() {
     let mut engine = MatchingEngine::new();
 
-    let original = engine
-        .accept_order(&packet(20, 20, 1, 100, 10))
-        .unwrap();
+    let original = engine.accept_order(&packet(20, 20, 1, 100, 10)).unwrap();
     engine.process_order(original.pool_index);
 
-    let replacement = engine
-        .accept_order(&packet(21, 20, 1, 90, 15))
-        .unwrap();
+    let replacement = engine.accept_order(&packet(21, 20, 1, 90, 15)).unwrap();
     engine.process_order(replacement.pool_index);
 
     let book = engine.book(0).unwrap();
