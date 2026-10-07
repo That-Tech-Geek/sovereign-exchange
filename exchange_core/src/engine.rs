@@ -4,7 +4,7 @@ use crate::command_journal::{CommandJournal, CommandJournalError};
 use crate::constants::{INITIAL_TRADE_CAPACITY, MAX_INSTRUMENTS};
 use crate::instrument::{Instrument, InstrumentRegistry, SOVEREIGNS};
 use crate::order::{ClientOrderId, ExchangeOrderId, OrderPacket};
-use crate::pool::{CommandKind, OrderPool, PoolError};
+use crate::pool::{CommandKind, OrderPool, PoolError, MAX_PACKED_EXCHANGE_ORDER_ID};
 use crate::ring::OrderQueue;
 use crate::sequence::SequenceNumber;
 
@@ -226,6 +226,9 @@ impl MatchingEngine {
             OrderCommand::Cancel(_) => ExchangeOrderId(0),
             OrderCommand::New(_) | OrderCommand::Replace(_) => {
                 let id = self.next_exchange_order_id;
+                if id > MAX_PACKED_EXCHANGE_ORDER_ID {
+                    return Err(OrderAcceptError::ExchangeOrderIdExhausted);
+                }
                 let Some(_) = id.checked_add(1) else {
                     return Err(OrderAcceptError::ExchangeOrderIdExhausted);
                 };
