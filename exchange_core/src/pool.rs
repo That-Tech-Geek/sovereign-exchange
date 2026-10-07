@@ -26,7 +26,7 @@ pub enum PoolError {
 #[repr(C, packed(1))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub exchange_order_id: u64,
+    exchange_order_id: [u8; 6],
     pub client_order_id: u64,
     pub sequence_number: u64,
     pub account_id: u32,
@@ -36,7 +36,8 @@ pub struct Order {
     meta: [u8; 3],
 }
 
-const _: () = assert!(std::mem::size_of::<Order>() == 45);
+const _: () = assert!(std::mem::size_of::<Order>() == 42);
+const EXCHANGE_ID_MASK: u64 = (1u64 << 48) - 1;
 
 const LINK_MASK: u32 = (1 << 23) - 1;
 const FREE_SENTINEL: u32 = LINK_MASK;
@@ -49,7 +50,15 @@ const KIND_MASK: u32 = 0x3;
 impl Order {
     #[inline(always)]
     pub fn exchange_order_id(&self) -> u64 {
-        self.exchange_order_id
+        let mut b = [0u8; 8];
+        b[..6].copy_from_slice(&self.exchange_order_id);
+        u64::from_le_bytes(b)
+    }
+
+    #[inline(always)]
+    fn set_exchange_order_id(&mut self, value: u64) {
+        assert!(value <= EXCHANGE_ID_MASK);
+        self.exchange_order_id.copy_from_slice(&value.to_le_bytes()[..6]);
     }
 
     #[inline(always)]
@@ -227,7 +236,7 @@ impl OrderPool {
                 order.set_prev(replace_cmd.target_client_order_id.0 as u32);
             }
         }
-        order.exchange_order_id = exchange_order_id.0;
+        order.set_exchange_order_id(exchange_order_id.0);
         Ok(idx)
     }
 
