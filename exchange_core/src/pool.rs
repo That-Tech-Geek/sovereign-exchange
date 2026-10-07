@@ -32,51 +32,97 @@ pub struct Order {
     pub account_id: u32,
     pub price: u32,
     pub remaining: u32,
-    pub next: u32,
-    pub prev: u32,
-    meta: u32,
+    links: [u8; 6],
+    meta: [u8; 3],
 }
 
-const _: () = assert!(std::mem::size_of::<Order>() == 44);
+const _: () = assert!(std::mem::size_of::<Order>() == 45);
 
-const INSTRUMENT_MASK: u32 = 0x0000_FFFF;
-const SIDE_SHIFT: u32 = 16;
-const KIND_SHIFT: u32 = 18;
+const LINK_MASK: u32 = (1 << 23) - 1;
+const INSTRUMENT_MASK: u32 = 0x01FF;
+const SIDE_SHIFT: u32 = 9;
+const KIND_SHIFT: u32 = 11;
 const SIDE_MASK: u32 = 0x3;
 const KIND_MASK: u32 = 0x3;
 
 impl Order {
     #[inline(always)]
+    fn links_u64(&self) -> u64 {
+        let mut b = [0u8; 8];
+        b[..6].copy_from_slice(&self.links);
+        u64::from_le_bytes(b)
+    }
+
+    #[inline(always)]
+    fn set_links_u64(&mut self, value: u64) {
+        self.links.copy_from_slice(&value.to_le_bytes()[..6]);
+    }
+
+    #[inline(always)]
+    pub fn next(&self) -> u32 {
+        (self.links_u64() as u32) & LINK_MASK
+    }
+
+    #[inline(always)]
+    pub fn prev(&self) -> u32 {
+        ((self.links_u64() >> 23) as u32) & LINK_MASK
+    }
+
+    #[inline(always)]
+    pub fn set_next(&mut self, value: u32) {
+        assert!(value <= LINK_MASK);
+        let prev = self.prev();
+        self.set_links_u64(value as u64 | ((prev as u64) << 23));
+    }
+
+    #[inline(always)]
+    pub fn set_prev(&mut self, value: u32) {
+        assert!(value <= LINK_MASK);
+        let next = self.next();
+        self.set_links_u64(next as u64 | ((value as u64) << 23));
+    }
+
+    #[inline(always)]
+    fn meta_u32(&self) -> u32 {
+        u32::from_le_bytes([self.meta[0], self.meta[1], self.meta[2], 0])
+    }
+
+    #[inline(always)]
+    fn set_meta_u32(&mut self, value: u32) {
+        let b = value.to_le_bytes();
+        self.meta.copy_from_slice(&b[..3]);
+    }
+
+    #[inline(always)]
     pub fn instrument_id(&self) -> u16 {
-        (self.meta & INSTRUMENT_MASK) as u16
+        (self.meta_u32() & INSTRUMENT_MASK) as u16
     }
 
     #[inline(always)]
     pub fn side(&self) -> u8 {
-        ((self.meta >> SIDE_SHIFT) & SIDE_MASK) as u8
+        ((self.meta_u32() >> SIDE_SHIFT) & SIDE_MASK) as u8
     }
 
     #[inline(always)]
     pub fn command_kind(&self) -> u8 {
-        ((self.meta >> KIND_SHIFT) & KIND_MASK) as u8
+        ((self.meta_u32() >> KIND_SHIFT) & KIND_MASK) as u8
     }
 
     #[inline(always)]
     fn set_meta(&mut self, instrument_id: u16, side: u8, command_kind: CommandKind) {
-        self.meta = instrument_id as u32
-            | ((side as u32 & SIDE_MASK) << SIDE_SHIFT)
-            | (((command_kind as u32) & KIND_MASK) << KIND_SHIFT);
-    }
-
-    #[inline(always)]
-    fn set_command_kind(&mut self, command_kind: CommandKind) {
-        self.meta = (self.meta & !(KIND_MASK << KIND_SHIFT))
-            | (((command_kind as u32) & KIND_MASK) << KIND_SHIFT);
+        assert!((instrument_id as u32) <= INSTRUMENT_MASK);
+        self.set_meta_u32(
+            instrument_id as u32
+                | ((side as u32 & SIDE_MASK) << SIDE_SHIFT)
+                | (((command_kind as u32) & KIND_MASK) << KIND_SHIFT),
+        );
     }
 
     #[inline(always)]
     pub fn set_command_kind_new(&mut self) {
-        self.set_command_kind(CommandKind::New);
+        let mut meta = self.meta_u32();
+        meta = (meta & !(KIND_MASK << KIND_SHIFT)) | ((CommandKind::New as u32) << KIND_SHIFT);
+        self.set_meta_u32(meta);
     }
 }
 
@@ -97,9 +143,9 @@ impl OrderPool {
         let mut data = Vec::with_capacity(MAX_ORDERS + 1);
         data.resize(MAX_ORDERS + 1, Order::default());
         for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS).skip(1) {
-            order.next = (i + 1) as u32;
+            order.set_next((i + 1) as u32);
         }
-        data[MAX_ORDERS].next = u32::MAX;
+        data[MAX_ORDERS].set_next(u32::MAX);
         Self {
             data,
             free_head: 1,
@@ -113,7 +159,7 @@ impl OrderPool {
         if idx == u32::MAX {
             return Err(PoolError::Exhausted);
         }
-        self.free_head = self.data[idx as usize].next;
+        self.free_head = self.data[idx as usize].next();
         self.data[idx as usize] = Order::default();
         self.allocated_count += 1;
         Ok(idx)
@@ -162,7 +208,7 @@ impl OrderPool {
                 order.price = replace_cmd.price;
                 order.remaining = replace_cmd.quantity;
                 order.sequence_number = sequence_number.0;
-                order.prev = replace_cmd.target_client_order_id.0 as u32;
+                order.set_prev(replace_cmd.target_client_order_id.0 as u32);
             }
         }
         order.exchange_order_id = exchange_order_id.0;
@@ -197,7 +243,7 @@ impl OrderPool {
         if idx == NULL_ORDER {
             return;
         }
-        self.data[idx as usize].next = self.free_head;
+        self.data[idx as usize].set_next(self.free_head);
         self.free_head = idx;
         self.allocated_count -= 1;
     }
