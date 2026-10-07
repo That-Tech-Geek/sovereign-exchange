@@ -49,12 +49,12 @@ impl Default for OrderPool {
 
 impl OrderPool {
     pub fn new() -> Self {
-        let mut data = Vec::with_capacity(MAX_ORDERS);
-        data.resize(MAX_ORDERS, Order::default());
-        for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS - 1).skip(1) {
+        let mut data = Vec::with_capacity(MAX_ORDERS + 1);
+        data.resize(MAX_ORDERS + 1, Order::default());
+        for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS).skip(1) {
             order.next = (i + 1) as u32;
         }
-        data[MAX_ORDERS - 1].next = u32::MAX;
+        data[MAX_ORDERS].next = u32::MAX;
         Self {
             data,
             free_head: 1,
