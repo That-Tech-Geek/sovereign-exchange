@@ -102,7 +102,17 @@ fn replace_preserves_identity_and_pool_accounting() {
     let original = engine.accept_order(&packet(20, 20, 1, 100, 10)).unwrap();
     engine.process_order(original.pool_index);
 
-    let replacement = engine.accept_order(&packet(21, 20, 1, 90, 15)).unwrap();
+    let replacement_command = OrderCommand::Replace(ReplaceOrder {
+        account_id: 20,
+        instrument_id: 0,
+        target_client_order_id: exchange_core::order::ClientOrderId(20),
+        new_client_order_id: exchange_core::order::ClientOrderId(21),
+        side: OrderSide::Sell,
+        price: 90,
+        quantity: 15,
+        client_timestamp: 21,
+    });
+    let replacement = engine.accept_command(&replacement_command).unwrap();
     engine.process_order(replacement.pool_index);
 
     let book = engine.book(0).unwrap();
