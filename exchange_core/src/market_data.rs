@@ -201,7 +201,7 @@ mod tests {
         let mut book = OrderBook::new();
         let mut pool = crate::pool::OrderPool::new();
         let idx = pool.allocate().unwrap();
-        pool.data[idx as usize].side = 0;
+        pool.data[idx as usize].set_meta(pool.data[idx as usize].instrument_id(), 0, crate::pool::CommandKind::New);
         pool.data[idx as usize].price = 100;
         pool.data[idx as usize].remaining = 7;
         pool.data[idx as usize].account_id = 1;
