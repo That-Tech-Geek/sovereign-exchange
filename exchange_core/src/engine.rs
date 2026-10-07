@@ -594,7 +594,7 @@ impl MatchingEngine {
             pool.data[bid_idx as usize].remaining -= fill_qty;
 
             if let Some(level) = book.bids.get_mut(&bid_price) {
-                level.volume = level.volume.saturating_sub(fill_qty);
+                level.volume = level.volume.saturating_sub(fill_qty as u64);
             }
 
             trades.push(Trade {
