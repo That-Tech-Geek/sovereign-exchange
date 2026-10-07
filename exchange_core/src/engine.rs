@@ -4,7 +4,7 @@ use crate::command_journal::{CommandJournal, CommandJournalError};
 use crate::constants::{INITIAL_TRADE_CAPACITY, MAX_INSTRUMENTS};
 use crate::instrument::{Instrument, InstrumentRegistry, SOVEREIGNS};
 use crate::order::{ClientOrderId, ExchangeOrderId, OrderPacket};
-use crate::pool::{CommandKind, OrderPool, PoolError, MAX_PACKED_EXCHANGE_ORDER_ID};
+use crate::pool::{CommandKind, OrderPool, PoolError, MAX_PACKED_EXCHANGE_ORDER_ID, MAX_PACKED_SEQUENCE_NUMBER};
 use crate::ring::OrderQueue;
 use crate::sequence::SequenceNumber;
 
@@ -218,6 +218,9 @@ impl MatchingEngine {
         }
 
         let sequence = self.next_sequence_number;
+        if sequence > MAX_PACKED_SEQUENCE_NUMBER {
+            return Err(OrderAcceptError::SequenceNumberExhausted);
+        }
         let Some(next_sequence) = sequence.checked_add(1) else {
             return Err(OrderAcceptError::SequenceNumberExhausted);
         };
@@ -455,7 +458,7 @@ impl MatchingEngine {
                     order.side(),
                     order.price,
                     order.remaining,
-                    order.sequence_number,
+                    order.sequence_number(),
                 ));
             }
             orders.sort_unstable();
