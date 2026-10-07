@@ -348,7 +348,7 @@ impl MatchingEngine {
                     return 0;
                 }
                 self.pool.data[idx as usize].set_command_kind_new();
-                self.pool.data[idx as usize].prev = 0;
+                self.pool.data[idx as usize].set_prev(0);
                 self.push_event(ExchangeEvent::OrderReplaced {
                     instrument_id,
                     account_id,
