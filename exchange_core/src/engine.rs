@@ -451,10 +451,8 @@ impl MatchingEngine {
                     order.exchange_order_id,
                     order.side,
                     order.price,
-                    order.quantity,
                     order.remaining,
                     order.sequence_number,
-                    order.client_timestamp,
                 ));
             }
             orders.sort_unstable();
@@ -466,10 +464,8 @@ impl MatchingEngine {
                 exchange_order_id,
                 side,
                 price,
-                quantity,
                 remaining,
                 sequence_number,
-                client_timestamp,
             ) in orders
             {
                 mix(account_id as u64);
@@ -477,10 +473,8 @@ impl MatchingEngine {
                 mix(exchange_order_id);
                 mix(side as u64);
                 mix(price as u64);
-                mix(quantity as u64);
                 mix(remaining as u64);
                 mix(sequence_number);
-                mix(client_timestamp);
             }
         }
         hash
