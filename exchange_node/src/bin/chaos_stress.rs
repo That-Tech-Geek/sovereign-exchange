@@ -30,16 +30,19 @@ fn run(name: &str, count: u64, loss: u8, dup: u8, reorder: bool, partition: bool
     let mut rng = XorShift(0x5EED_2026);
     let mut ingress = PeerIngress::default();
     let mut wire = Vec::with_capacity(count as usize);
+    let mut retransmit = Vec::new();
     let mut dropped = 0;
     let mut duplicated = 0;
     for seq in 1..=count {
         if partition && seq > count / 3 && seq <= count * 2 / 3 {
             dropped += 1;
+            retransmit.push(frame(1, 1, seq));
             continue;
         }
         let f = frame(1, 1, seq);
         if rng.pct() < loss {
             dropped += 1;
+            retransmit.push(f);
             continue;
         }
         wire.push(f);
@@ -62,6 +65,15 @@ fn run(name: &str, count: u64, loss: u8, dup: u8, reorder: bool, partition: bool
             Err(ProtocolError::SequenceGap) => gaps += 1,
             Err(ProtocolError::Duplicate) => {}
             Err(e) => panic!("unexpected protocol error: {e:?}"),
+        }
+    }
+    retransmit.sort_by_key(|f| f.sequence);
+    for f in retransmit {
+        match ingress.ingest(f) {
+            Ok(committed) => accepted += committed.len() as u64,
+            Err(ProtocolError::Duplicate) => {}
+            Err(ProtocolError::SequenceGap) => gaps += 1,
+            Err(e) => panic!("unexpected retransmit error: {e:?}"),
         }
     }
     println!("{name}: generated={count} accepted={accepted} dropped={dropped} duplicated={duplicated} gaps={gaps}");
@@ -88,11 +100,20 @@ fn main() {
         if name.starts_with("dup2_") && *accepted != *generated {
             panic!("duplicate run changed canonical count: {name}");
         }
+        if name.starts_with("loss") && *accepted != *generated {
+            panic!("loss recovery failed: {name}");
+        }
         if name.starts_with("loss") && *gaps == 0 {
             panic!("loss run failed to detect missing sequence: {name}");
         }
+        if name.starts_with("reorder_") && *accepted != *generated {
+            panic!("reorder recovery failed: {name}");
+        }
         if name.starts_with("reorder_") && *gaps == 0 {
             panic!("reorder run failed to detect sequence disorder: {name}");
+        }
+        if name.starts_with("partition_") && *accepted != *generated {
+            panic!("partition recovery failed: {name}");
         }
         if name.starts_with("partition_") && *gaps == 0 {
             panic!("partition run failed to fence the gap: {name}");
