@@ -48,8 +48,7 @@ fn run_node(
         while !done.load(Ordering::Relaxed) {
             match socket.recv_from(&mut buf) {
                 Ok((n, _))
-                    if n == FRAME
-                        && u32::from_le_bytes(buf[0..4].try_into().unwrap()) == MAGIC =>
+                    if n == FRAME && u32::from_le_bytes(buf[0..4].try_into().unwrap()) == MAGIC =>
                 {
                     let p = OrderPacket::from_bytes((&buf[8..40]).try_into().unwrap());
                     if p.instrument_id as usize % NODES != id {
