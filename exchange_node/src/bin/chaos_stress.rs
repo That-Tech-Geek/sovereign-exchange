@@ -12,7 +12,9 @@ impl XorShift {
         self.0 = x;
         x
     }
-    fn pct(&mut self) -> u8 { (self.next() % 100) as u8 }
+    fn pct(&mut self) -> u8 {
+        (self.next() % 100) as u8
+    }
 }
 
 fn frame(sender: u16, epoch: u64, sequence: u64) -> Frame {
@@ -26,7 +28,14 @@ fn frame(sender: u16, epoch: u64, sequence: u64) -> Frame {
     }
 }
 
-fn run(name: &str, count: u64, loss: u8, dup: u8, reorder: bool, partition: bool) -> (u64, u64, u64, u64) {
+fn run(
+    name: &str,
+    count: u64,
+    loss: u8,
+    dup: u8,
+    reorder: bool,
+    partition: bool,
+) -> (u64, u64, u64, u64) {
     let mut rng = XorShift(0x5EED_2026);
     let mut ingress = PeerIngress::default();
     let mut wire = Vec::with_capacity(count as usize);
@@ -85,12 +94,30 @@ fn main() {
     let mut report = BTreeMap::new();
 
     for count in loads {
-        report.insert(format!("clean_{count}"), run("clean", count, 0, 0, false, false));
-        report.insert(format!("loss1_{count}"), run("loss1", count, 1, 0, false, false));
-        report.insert(format!("loss5_{count}"), run("loss5", count, 5, 0, false, false));
-        report.insert(format!("dup2_{count}"), run("dup2", count, 0, 2, false, false));
-        report.insert(format!("reorder_{count}"), run("reorder", count, 0, 0, true, false));
-        report.insert(format!("partition_{count}"), run("partition", count, 0, 0, false, true));
+        report.insert(
+            format!("clean_{count}"),
+            run("clean", count, 0, 0, false, false),
+        );
+        report.insert(
+            format!("loss1_{count}"),
+            run("loss1", count, 1, 0, false, false),
+        );
+        report.insert(
+            format!("loss5_{count}"),
+            run("loss5", count, 5, 0, false, false),
+        );
+        report.insert(
+            format!("dup2_{count}"),
+            run("dup2", count, 0, 2, false, false),
+        );
+        report.insert(
+            format!("reorder_{count}"),
+            run("reorder", count, 0, 0, true, false),
+        );
+        report.insert(
+            format!("partition_{count}"),
+            run("partition", count, 0, 0, false, true),
+        );
     }
 
     for (name, (generated, accepted, dropped, gaps)) in &report {
