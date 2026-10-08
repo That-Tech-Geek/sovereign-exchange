@@ -27,9 +27,7 @@ fn frame(node_id: u16, kind: u8, packet: OrderPacket) -> [u8; FRAME_BYTES] {
 }
 
 fn decode(buf: &[u8]) -> Option<(u16, u8, OrderPacket)> {
-    if buf.len() != FRAME_BYTES
-        || u32::from_le_bytes(buf[0..4].try_into().ok()?) != MAGIC
-    {
+    if buf.len() != FRAME_BYTES || u32::from_le_bytes(buf[0..4].try_into().ok()?) != MAGIC {
         return None;
     }
     Some((
@@ -46,9 +44,7 @@ fn main() -> std::io::Result<()> {
         .unwrap_or_else(|| "0".into())
         .parse()
         .expect("node id");
-    let bind = args
-        .next()
-        .unwrap_or_else(|| "0.0.0.0:7000".into());
+    let bind = args.next().unwrap_or_else(|| "0.0.0.0:7000".into());
     let peers_raw = args
         .next()
         .unwrap_or_else(|| "0=127.0.0.1:7000".into());
@@ -106,9 +102,7 @@ fn main() -> std::io::Result<()> {
                         a.fetch_add(1, Ordering::Relaxed);
                         t.fetch_add(engine.trade_count as u64, Ordering::Relaxed);
                         let ack = frame(node_id, KIND_ACK, packet);
-                        if let Some(origin_peer) =
-                            peers.iter().find(|p| p.node_id == origin)
-                        {
+                        if let Some(origin_peer) = peers.iter().find(|p| p.node_id == origin) {
                             let _ = rx.send_to(&ack, origin_peer.addr);
                         } else {
                             let _ = rx.send_to(&ack, src);
