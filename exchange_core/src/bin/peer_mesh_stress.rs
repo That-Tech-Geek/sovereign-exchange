@@ -128,5 +128,5 @@ fn main() {
     println!("peer_mesh_trades={}", trades.load(Ordering::Relaxed));
     println!("peer_mesh_elapsed_s={elapsed:.6}");
     println!("peer_mesh_orders_per_sec={:.0}", got as f64 / elapsed);
-    assert_eq!(got, ORDERS, "UDP mesh lost orders before deadline");
+    assert_eq!(got, ORDERS as u64, "UDP mesh lost orders before deadline");
 }
