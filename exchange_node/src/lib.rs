@@ -174,4 +174,3 @@ impl PeerIngress {
         Ok(committed)
     }
 }
-
