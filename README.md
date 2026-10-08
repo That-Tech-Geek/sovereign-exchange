@@ -1,6 +1,6 @@
 # Sovereign Exchange
 
-A Rust exchange-core project for a centralized, deterministic sovereign securities exchange with durable recovery and availability-first infrastructure.
+A Rust-native exchange backend: deterministic matching, durable recovery, risk, settlement, peer replication, and low-overhead market-data infrastructure. The frontend is intentionally a separate repository.
 
 > **Status: reference exchange. Ready for external engineering evaluation.**
 
@@ -23,7 +23,7 @@ A Rust exchange-core project for a centralized, deterministic sovereign securiti
 
 ## Scope and remaining deployment work
 
-The repository is a complete reference spot-exchange core for evaluation: matching, deterministic risk/account state, settlement, durable recovery primitives, consensus core, native session protocol, market data, and certification workflows.
+The repository is the backend reference implementation: matching, deterministic risk/account state, settlement, durable recovery, consensus, native session protocol, market data, peer-node transport, and certification workflows. The frontend is a separate client and never becomes an exchange authority.
 
 It does not claim regulatory approval, custody or banking integration, deployment-specific key management, or production certification for a particular operating environment. Those controls belong at deployment and jurisdictional integration boundaries.
 
