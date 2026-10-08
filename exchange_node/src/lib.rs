@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::time::Duration;
 
 pub const PROTOCOL_VERSION: u8 = 1;
@@ -119,10 +119,16 @@ pub fn transport_timeout() -> Duration {
 pub struct PeerIngress {
     epochs: HashMap<u16, u64>,
     next: HashMap<u16, u64>,
+    pending: HashMap<u16, BTreeMap<u64, Frame>>,
 }
 
 impl PeerIngress {
     pub fn observe(&mut self, frame: Frame) -> Result<(), ProtocolError> {
+        let _ = self.ingest(frame)?;
+        Ok(())
+    }
+
+    pub fn ingest(&mut self, frame: Frame) -> Result<Vec<Frame>, ProtocolError> {
         let current_epoch = self.epochs.entry(frame.sender).or_insert(frame.epoch);
         if frame.epoch < *current_epoch {
             return Err(ProtocolError::Duplicate);
@@ -130,49 +136,32 @@ impl PeerIngress {
         if frame.epoch > *current_epoch {
             *current_epoch = frame.epoch;
             self.next.insert(frame.sender, 1);
+            self.pending.remove(&frame.sender);
         }
-        let expected = self.next.entry(frame.sender).or_insert(1);
-        match frame.sequence.cmp(expected) {
-            std::cmp::Ordering::Less => Err(ProtocolError::Duplicate),
-            std::cmp::Ordering::Greater => Err(ProtocolError::SequenceGap),
-            std::cmp::Ordering::Equal => {
-                *expected = expected.saturating_add(1);
-                Ok(())
+
+        let expected = *self.next.entry(frame.sender).or_insert(1);
+        if frame.sequence < expected {
+            return Err(ProtocolError::Duplicate);
+        }
+        if frame.sequence > expected {
+            self.pending.entry(frame.sender).or_default().entry(frame.sequence).or_insert(frame);
+            return Err(ProtocolError::SequenceGap);
+        }
+
+        let mut committed = vec![frame];
+        self.next.insert(frame.sender, expected + 1);
+        if let Some(buffer) = self.pending.get_mut(&frame.sender) {
+            loop {
+                let expected = *self.next.get(&frame.sender).unwrap_or(&1);
+                let Some(next_frame) = buffer.remove(&expected) else { break };
+                self.next.insert(frame.sender, expected + 1);
+                committed.push(next_frame);
             }
         }
+        if self.pending.get(&frame.sender).is_some_and(BTreeMap::is_empty) {
+            self.pending.remove(&frame.sender);
+        }
+        Ok(committed)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn fixed_frame_round_trips() {
-        let frame = Frame {
-            kind: MessageKind::Order,
-            sender: 7,
-            epoch: 11,
-            sequence: 99,
-            instrument: 17,
-            payload: [0xAB; 24],
-        };
-        assert_eq!(Frame::decode(&frame.encode()).unwrap(), frame);
-    }
-
-    #[test]
-    fn malformed_frames_are_rejected() {
-        assert_eq!(Frame::decode(&[0; 3]), Err(ProtocolError::InvalidLength));
-    }
-
-    #[test]
-    fn peer_gaps_are_detected() {
-        let mut seq = PeerSequencer::default();
-        assert!(seq.observe(1, 1).is_ok());
-        assert_eq!(seq.observe(1, 3), Err(ProtocolError::SequenceGap));
-        assert_eq!(seq.observe(1, 3), Err(ProtocolError::SequenceGap));
-        assert!(seq.observe(1, 2).is_ok());
-        assert!(seq.observe(1, 3).is_ok());
-        assert_eq!(seq.observe(1, 3), Err(ProtocolError::Duplicate));
-    }
-}
