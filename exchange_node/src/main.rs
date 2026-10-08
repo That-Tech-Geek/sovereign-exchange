@@ -45,9 +45,7 @@ fn main() -> std::io::Result<()> {
         .parse()
         .expect("node id");
     let bind = args.next().unwrap_or_else(|| "0.0.0.0:7000".into());
-    let peers_raw = args
-        .next()
-        .unwrap_or_else(|| "0=127.0.0.1:7000".into());
+    let peers_raw = args.next().unwrap_or_else(|| "0=127.0.0.1:7000".into());
     let peers: Vec<Peer> = peers_raw
         .split(',')
         .map(|entry| {
