@@ -131,12 +131,15 @@ impl PeerIngress {
             *current_epoch = frame.epoch;
             self.next.insert(frame.sender, 1);
         }
-        PeerSequencer { next: std::mem::take(&mut self.next) }
-            .observe(frame.sender, frame.sequence)
-            .and_then(|_| {
-                self.next = PeerSequencer { next: HashMap::new() }.next;
+        let expected = self.next.entry(frame.sender).or_insert(1);
+        match frame.sequence.cmp(expected) {
+            std::cmp::Ordering::Less => Err(ProtocolError::Duplicate),
+            std::cmp::Ordering::Greater => Err(ProtocolError::SequenceGap),
+            std::cmp::Ordering::Equal => {
+                *expected = expected.saturating_add(1);
                 Ok(())
-            })
+            }
+        }
     }
 }
 
