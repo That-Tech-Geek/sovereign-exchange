@@ -100,10 +100,7 @@ impl PeerSequencer {
         let expected = self.next.entry(sender).or_insert(1);
         match sequence.cmp(expected) {
             std::cmp::Ordering::Less => Err(ProtocolError::Duplicate),
-            std::cmp::Ordering::Greater => {
-                *expected = sequence;
-                Err(ProtocolError::SequenceGap)
-            }
+            std::cmp::Ordering::Greater => Err(ProtocolError::SequenceGap),
             std::cmp::Ordering::Equal => {
                 *expected = expected.saturating_add(1);
                 Ok(())
@@ -145,6 +142,9 @@ mod tests {
         let mut seq = PeerSequencer::default();
         assert!(seq.observe(1, 1).is_ok());
         assert_eq!(seq.observe(1, 3), Err(ProtocolError::SequenceGap));
+        assert_eq!(seq.observe(1, 3), Err(ProtocolError::SequenceGap));
+        assert!(seq.observe(1, 2).is_ok());
+        assert!(seq.observe(1, 3).is_ok());
         assert_eq!(seq.observe(1, 3), Err(ProtocolError::Duplicate));
     }
 }
