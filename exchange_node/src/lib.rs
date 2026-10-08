@@ -112,6 +112,8 @@ impl PeerSequencer {
     }
 }
 
+pub mod quic;
+
 pub fn transport_timeout() -> Duration {
     Duration::from_millis(250)
 }
