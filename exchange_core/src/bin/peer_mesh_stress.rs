@@ -11,8 +11,16 @@ const FRAME: usize = 40;
 const MAGIC: u32 = 0x5345_5831;
 
 fn packet(id: u64, account: u32, instrument: u16, side: u8, price: u32) -> OrderPacket {
-    OrderPacket { client_order_id: id, account_id: account, instrument_id: instrument,
-        side, price, quantity: 1, timestamp: id, _pad: 0 }
+    OrderPacket {
+        client_order_id: id,
+        account_id: account,
+        instrument_id: instrument,
+        side,
+        price,
+        quantity: 1,
+        timestamp: id,
+        _pad: 0,
+    }
 }
 
 fn encode(node: u16, p: OrderPacket) -> [u8; FRAME] {
@@ -24,26 +32,40 @@ fn encode(node: u16, p: OrderPacket) -> [u8; FRAME] {
     out
 }
 
-fn run_node(id: usize, socket: UdpSocket, done: Arc<AtomicBool>,
-            accepted: Arc<AtomicU64>, trades: Arc<AtomicU64>) {
+fn run_node(
+    id: usize,
+    socket: UdpSocket,
+    done: Arc<AtomicBool>,
+    accepted: Arc<AtomicU64>,
+    trades: Arc<AtomicU64>,
+) {
     thread::spawn(move || {
         let mut engine = MatchingEngine::new();
         let mut buf = [0u8; FRAME];
-        socket.set_read_timeout(Some(Duration::from_millis(10))).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_millis(10)))
+            .unwrap();
         while !done.load(Ordering::Relaxed) {
             match socket.recv_from(&mut buf) {
-                Ok((n, _)) if n == FRAME &&
-                    u32::from_le_bytes(buf[0..4].try_into().unwrap()) == MAGIC => {
+                Ok((n, _))
+                    if n == FRAME
+                        && u32::from_le_bytes(buf[0..4].try_into().unwrap()) == MAGIC =>
+                {
                     let p = OrderPacket::from_bytes((&buf[8..40]).try_into().unwrap());
-                    if p.instrument_id as usize % NODES != id { continue; }
+                    if p.instrument_id as usize % NODES != id {
+                        continue;
+                    }
                     if let Ok(a) = engine.accept_order(&p) {
                         engine.process_order(a.pool_index);
                         accepted.fetch_add(1, Ordering::Relaxed);
                         trades.fetch_add(engine.trade_count as u64, Ordering::Relaxed);
                     }
                 }
-                Err(e) if matches!(e.kind(),
-                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {}
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                    ) => {}
                 Err(e) => panic!("node {id} UDP receive failed: {e}"),
                 _ => {}
             }
@@ -54,15 +76,21 @@ fn run_node(id: usize, socket: UdpSocket, done: Arc<AtomicBool>,
 
 fn main() {
     let sockets: Vec<UdpSocket> = (0..NODES)
-        .map(|_| UdpSocket::bind("127.0.0.1:0").unwrap()).collect();
+        .map(|_| UdpSocket::bind("127.0.0.1:0").unwrap())
+        .collect();
     let addrs: Vec<_> = sockets.iter().map(|s| s.local_addr().unwrap()).collect();
     let done = Arc::new(AtomicBool::new(false));
     let accepted = Arc::new(AtomicU64::new(0));
     let trades = Arc::new(AtomicU64::new(0));
 
     for (id, socket) in sockets.iter().enumerate() {
-        run_node(id, socket.try_clone().unwrap(), Arc::clone(&done),
-                 Arc::clone(&accepted), Arc::clone(&trades));
+        run_node(
+            id,
+            socket.try_clone().unwrap(),
+            Arc::clone(&done),
+            Arc::clone(&accepted),
+            Arc::clone(&trades),
+        );
     }
 
     let tx = UdpSocket::bind("127.0.0.1:0").unwrap();
@@ -71,9 +99,20 @@ fn main() {
         let instrument = (i % 6) as u16;
         let side = if i % 2 == 0 { 1 } else { 0 };
         let owner = instrument as usize % NODES;
-        tx.send_to(&encode(owner as u16,
-            packet(i as u64 + 1, (i % 100_000) as u32 + 1,
-                   instrument, side, 10_000 + (i % 3) as u32)), addrs[owner]).unwrap();
+        tx.send_to(
+            &encode(
+                owner as u16,
+                packet(
+                    i as u64 + 1,
+                    (i % 100_000) as u32 + 1,
+                    instrument,
+                    side,
+                    10_000 + (i % 3) as u32,
+                ),
+            ),
+            addrs[owner],
+        )
+        .unwrap();
     }
 
     let deadline = Instant::now() + Duration::from_secs(10);
