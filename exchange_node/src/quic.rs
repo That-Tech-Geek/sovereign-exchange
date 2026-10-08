@@ -2,7 +2,6 @@ use crate::{Frame, ProtocolError};
 use quinn::{Connection, Endpoint, RecvStream, SendStream};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub async fn accept_loop(
     endpoint: Endpoint,
