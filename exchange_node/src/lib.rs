@@ -115,6 +115,31 @@ pub fn transport_timeout() -> Duration {
     Duration::from_millis(250)
 }
 
+#[derive(Debug, Default)]
+pub struct PeerIngress {
+    epochs: HashMap<u16, u64>,
+    next: HashMap<u16, u64>,
+}
+
+impl PeerIngress {
+    pub fn observe(&mut self, frame: Frame) -> Result<(), ProtocolError> {
+        let current_epoch = self.epochs.entry(frame.sender).or_insert(frame.epoch);
+        if frame.epoch < *current_epoch {
+            return Err(ProtocolError::Duplicate);
+        }
+        if frame.epoch > *current_epoch {
+            *current_epoch = frame.epoch;
+            self.next.insert(frame.sender, 1);
+        }
+        PeerSequencer { next: std::mem::take(&mut self.next) }
+            .observe(frame.sender, frame.sequence)
+            .and_then(|_| {
+                self.next = PeerSequencer { next: HashMap::new() }.next;
+                Ok(())
+            })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
