@@ -69,8 +69,8 @@ fn run(
     let mut accepted = 0;
     let mut gaps = 0;
     for f in wire {
-        match ingress.observe(f) {
-            Ok(()) => accepted += 1,
+        match ingress.ingest(f) {
+            Ok(committed) => accepted += committed.len() as u64,
             Err(ProtocolError::SequenceGap) => gaps += 1,
             Err(ProtocolError::Duplicate) => {}
             Err(e) => panic!("unexpected protocol error: {e:?}"),
