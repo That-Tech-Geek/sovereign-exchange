@@ -1,0 +1,41 @@
+name: Backend Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            exchange_core
+            exchange_node
+      - name: Format
+        run: |
+          cargo fmt --manifest-path exchange_core/Cargo.toml --all -- --check
+          cargo fmt --manifest-path exchange_node/Cargo.toml --all -- --check
+      - name: Core tests
+        run: cargo test --manifest-path exchange_core/Cargo.toml --all-targets --all-features
+      - name: Node tests
+        run: cargo test --manifest-path exchange_node/Cargo.toml --all-targets --all-features
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path exchange_core/Cargo.toml --all-targets --all-features -- -D warnings
+          cargo clippy --manifest-path exchange_node/Cargo.toml --all-targets --all-features -- -D warnings
+      - name: Release build
+        run: |
+          cargo build --release --manifest-path exchange_core/Cargo.toml
+          cargo build --release --manifest-path exchange_node/Cargo.toml
