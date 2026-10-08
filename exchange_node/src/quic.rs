@@ -35,13 +35,15 @@ async fn serve_connection(
 }
 
 async fn read_frame(recv: &mut RecvStream) -> Result<Frame, ProtocolError> {
-    let length = recv
-        .read_u16()
+    let mut length_bytes = [0u8; 2];
+    recv.read_exact(&mut length_bytes)
         .await
-        .map_err(|_| ProtocolError::InvalidLength)? as usize;
+        .map_err(|_| ProtocolError::InvalidLength)?;
+    let length = u16::from_be_bytes(length_bytes) as usize;
     if length > crate::MAX_FRAME_BYTES || length != crate::FRAME_BYTES {
         return Err(ProtocolError::InvalidLength);
     }
+
     let mut buf = [0u8; crate::FRAME_BYTES];
     recv.read_exact(&mut buf)
         .await
@@ -63,7 +65,8 @@ async fn write_frame(
     send: &mut SendStream,
     frame: Frame,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    send.write_u16(crate::FRAME_BYTES as u16).await?;
+    send.write_all(&(crate::FRAME_BYTES as u16).to_be_bytes())
+        .await?;
     send.write_all(&frame.encode()).await?;
     Ok(())
 }
@@ -72,6 +75,6 @@ pub async fn connect(
     endpoint: &Endpoint,
     addr: SocketAddr,
     server_name: &str,
-) -> Result<Connection, quinn::ConnectionError> {
+) -> Result<Connection, Box<dyn std::error::Error + Send + Sync>> {
     Ok(endpoint.connect(addr, server_name)?.await?)
 }
