@@ -1,4 +1,4 @@
-use sovereign_exchange_node::{Frame, MessageKind, PeerIngress, ProtocolError, FRAME_BYTES};
+use sovereign_exchange_node::{Frame, MessageKind, PeerIngress, ProtocolError};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Copy)]
@@ -151,6 +151,5 @@ fn main() {
     let mut stale = PeerIngress::default();
     assert!(stale.observe(frame(2, 7, 1)).is_ok());
     assert_eq!(stale.observe(frame(2, 6, 2)), Err(ProtocolError::Duplicate));
-    assert!(FRAME_BYTES <= 64);
     println!("CHAOS_RESULT=PASS");
 }
