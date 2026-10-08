@@ -144,7 +144,11 @@ impl PeerIngress {
             return Err(ProtocolError::Duplicate);
         }
         if frame.sequence > expected {
-            self.pending.entry(frame.sender).or_default().entry(frame.sequence).or_insert(frame);
+            self.pending
+                .entry(frame.sender)
+                .or_default()
+                .entry(frame.sequence)
+                .or_insert(frame);
             return Err(ProtocolError::SequenceGap);
         }
 
@@ -153,12 +157,18 @@ impl PeerIngress {
         if let Some(buffer) = self.pending.get_mut(&frame.sender) {
             loop {
                 let expected = *self.next.get(&frame.sender).unwrap_or(&1);
-                let Some(next_frame) = buffer.remove(&expected) else { break };
+                let Some(next_frame) = buffer.remove(&expected) else {
+                    break;
+                };
                 self.next.insert(frame.sender, expected + 1);
                 committed.push(next_frame);
             }
         }
-        if self.pending.get(&frame.sender).is_some_and(BTreeMap::is_empty) {
+        if self
+            .pending
+            .get(&frame.sender)
+            .is_some_and(BTreeMap::is_empty)
+        {
             self.pending.remove(&frame.sender);
         }
         Ok(committed)
