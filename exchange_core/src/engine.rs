@@ -4,7 +4,9 @@ use crate::command_journal::{CommandJournal, CommandJournalError};
 use crate::constants::{INITIAL_TRADE_CAPACITY, MAX_INSTRUMENTS};
 use crate::instrument::{Instrument, InstrumentRegistry, SOVEREIGNS};
 use crate::order::{ClientOrderId, ExchangeOrderId, OrderPacket};
-use crate::pool::{CommandKind, OrderPool, PoolError};
+use crate::pool::{
+    CommandKind, OrderPool, PoolError, MAX_PACKED_EXCHANGE_ORDER_ID, MAX_PACKED_SEQUENCE_NUMBER,
+};
 use crate::ring::OrderQueue;
 use crate::sequence::SequenceNumber;
 
@@ -218,6 +220,9 @@ impl MatchingEngine {
         }
 
         let sequence = self.next_sequence_number;
+        if sequence > MAX_PACKED_SEQUENCE_NUMBER {
+            return Err(OrderAcceptError::SequenceNumberExhausted);
+        }
         let Some(next_sequence) = sequence.checked_add(1) else {
             return Err(OrderAcceptError::SequenceNumberExhausted);
         };
@@ -226,6 +231,9 @@ impl MatchingEngine {
             OrderCommand::Cancel(_) => ExchangeOrderId(0),
             OrderCommand::New(_) | OrderCommand::Replace(_) => {
                 let id = self.next_exchange_order_id;
+                if id > MAX_PACKED_EXCHANGE_ORDER_ID {
+                    return Err(OrderAcceptError::ExchangeOrderIdExhausted);
+                }
                 let Some(_) = id.checked_add(1) else {
                     return Err(OrderAcceptError::ExchangeOrderIdExhausted);
                 };
@@ -315,9 +323,9 @@ impl MatchingEngine {
         self.last_events.clear();
         self.event_count = 0;
 
-        let instrument_id = self.pool.data[idx as usize].instrument_id;
-        let command_kind = self.pool.data[idx as usize].command_kind;
-        let sequence_number = SequenceNumber(self.pool.data[idx as usize].sequence_number);
+        let instrument_id = self.pool.data[idx as usize].instrument_id();
+        let command_kind = self.pool.data[idx as usize].command_kind();
+        let sequence_number = SequenceNumber(self.pool.data[idx as usize].sequence_number());
         let account_id = self.pool.data[idx as usize].account_id;
         let client_order_id = ClientOrderId(self.pool.data[idx as usize].client_order_id);
 
@@ -340,15 +348,15 @@ impl MatchingEngine {
                 return 0;
             }
             x if x == CommandKind::Replace as u8 => {
-                let target =
-                    ClientOrderId(self.pool.data[idx as usize].replace_target_client_order_id);
+                let target = ClientOrderId(self.pool.data[idx as usize].prev() as u64);
                 let exchange_order_id =
-                    ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id);
+                    ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id());
                 if !self.cancel_order(instrument_id, account_id, target) {
                     self.pool.deallocate(idx);
                     return 0;
                 }
-                self.pool.data[idx as usize].command_kind = CommandKind::New as u8;
+                self.pool.data[idx as usize].set_command_kind_new();
+                self.pool.data[idx as usize].set_prev(0);
                 self.push_event(ExchangeEvent::OrderReplaced {
                     instrument_id,
                     account_id,
@@ -365,7 +373,7 @@ impl MatchingEngine {
             }
         }
 
-        let side = self.pool.data[idx as usize].side;
+        let side = self.pool.data[idx as usize].side();
         if side > 1 {
             self.pool.deallocate(idx);
             return 0;
@@ -375,7 +383,7 @@ impl MatchingEngine {
             instrument_id,
             account_id,
             client_order_id,
-            exchange_order_id: ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id),
+            exchange_order_id: ExchangeOrderId(self.pool.data[idx as usize].exchange_order_id()),
             sequence_number,
         });
 
@@ -448,13 +456,11 @@ impl MatchingEngine {
                 orders.push((
                     key.account_id,
                     key.client_order_id.0,
-                    order.exchange_order_id,
-                    order.side,
+                    order.exchange_order_id(),
+                    order.side(),
                     order.price,
-                    order.quantity,
                     order.remaining,
-                    order.sequence_number,
-                    order.client_timestamp,
+                    order.sequence_number(),
                 ));
             }
             orders.sort_unstable();
@@ -466,10 +472,8 @@ impl MatchingEngine {
                 exchange_order_id,
                 side,
                 price,
-                quantity,
                 remaining,
                 sequence_number,
-                client_timestamp,
             ) in orders
             {
                 mix(account_id as u64);
@@ -477,10 +481,8 @@ impl MatchingEngine {
                 mix(exchange_order_id);
                 mix(side as u64);
                 mix(price as u64);
-                mix(quantity as u64);
                 mix(remaining as u64);
                 mix(sequence_number);
-                mix(client_timestamp);
             }
         }
         hash
@@ -538,7 +540,7 @@ impl MatchingEngine {
             pool.data[ask_idx as usize].remaining -= fill_qty;
 
             if let Some(level) = book.asks.get_mut(&ask_price) {
-                level.volume = level.volume.saturating_sub(fill_qty);
+                level.volume = level.volume.saturating_sub(fill_qty as u64);
             }
 
             trades.push(Trade {
@@ -547,16 +549,16 @@ impl MatchingEngine {
                 price: ask_price,
                 qty: fill_qty,
                 instrument_id,
-                buyer_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id,
-                seller_exchange_order_id: pool.data[ask_idx as usize].exchange_order_id,
+                buyer_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id(),
+                seller_exchange_order_id: pool.data[ask_idx as usize].exchange_order_id(),
                 buyer_client_order_id: pool.data[incoming_idx as usize].client_order_id,
                 seller_client_order_id: pool.data[ask_idx as usize].client_order_id,
-                buyer_sequence_number: pool.data[incoming_idx as usize].sequence_number,
-                seller_sequence_number: pool.data[ask_idx as usize].sequence_number,
+                buyer_sequence_number: pool.data[incoming_idx as usize].sequence_number(),
+                seller_sequence_number: pool.data[ask_idx as usize].sequence_number(),
                 // Logical exchange time is derived from the deterministic
                 // command sequence. Never consult wall-clock time in the
                 // matching path.
-                timestamp: pool.data[incoming_idx as usize].sequence_number,
+                timestamp: pool.data[incoming_idx as usize].sequence_number(),
             });
 
             if pool.data[ask_idx as usize].remaining == 0 {
@@ -594,7 +596,7 @@ impl MatchingEngine {
             pool.data[bid_idx as usize].remaining -= fill_qty;
 
             if let Some(level) = book.bids.get_mut(&bid_price) {
-                level.volume = level.volume.saturating_sub(fill_qty);
+                level.volume = level.volume.saturating_sub(fill_qty as u64);
             }
 
             trades.push(Trade {
@@ -603,16 +605,16 @@ impl MatchingEngine {
                 price: bid_price,
                 qty: fill_qty,
                 instrument_id,
-                buyer_exchange_order_id: pool.data[bid_idx as usize].exchange_order_id,
-                seller_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id,
+                buyer_exchange_order_id: pool.data[bid_idx as usize].exchange_order_id(),
+                seller_exchange_order_id: pool.data[incoming_idx as usize].exchange_order_id(),
                 buyer_client_order_id: pool.data[bid_idx as usize].client_order_id,
                 seller_client_order_id: pool.data[incoming_idx as usize].client_order_id,
-                buyer_sequence_number: pool.data[bid_idx as usize].sequence_number,
-                seller_sequence_number: pool.data[incoming_idx as usize].sequence_number,
+                buyer_sequence_number: pool.data[bid_idx as usize].sequence_number(),
+                seller_sequence_number: pool.data[incoming_idx as usize].sequence_number(),
                 // Logical exchange time is derived from the deterministic
                 // command sequence. Never consult wall-clock time in the
                 // matching path.
-                timestamp: pool.data[incoming_idx as usize].sequence_number,
+                timestamp: pool.data[incoming_idx as usize].sequence_number(),
             });
 
             if pool.data[bid_idx as usize].remaining == 0 {

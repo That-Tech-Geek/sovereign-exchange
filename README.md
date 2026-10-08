@@ -1,6 +1,6 @@
 # Sovereign Exchange
 
-A Rust exchange-core project for a centralized, deterministic sovereign securities exchange with durable recovery and availability-first infrastructure.
+A Rust-native exchange backend: deterministic matching, durable recovery, risk, settlement, peer replication, and low-overhead market-data infrastructure. The frontend is intentionally a separate repository.
 
 > **Status: reference exchange. Ready for external engineering evaluation.**
 
@@ -23,9 +23,17 @@ A Rust exchange-core project for a centralized, deterministic sovereign securiti
 
 ## Scope and remaining deployment work
 
-The repository is a complete reference spot-exchange core for evaluation: matching, deterministic risk/account state, settlement, durable recovery primitives, consensus core, native session protocol, market data, and certification workflows.
+The repository is the backend reference implementation: matching, deterministic risk/account state, settlement, durable recovery, consensus, native session protocol, market data, peer-node transport, and certification workflows. The frontend is a separate client and never becomes an exchange authority.
 
 It does not claim regulatory approval, custody or banking integration, deployment-specific key management, or production certification for a particular operating environment. Those controls belong at deployment and jurisdictional integration boundaries.
+
+## Vercel deployment
+
+Vercel is the exchange cockpit/control-plane deployment. It serves the React/Vite interface and a stateless API gateway that forwards requests to the authoritative Rust engine.
+
+The gateway **does not match orders**. It cannot allocate an independent book, assign exchange sequence numbers, or become a second matcher. See [docs/VERCEL_DEPLOYMENT.md](docs/VERCEL_DEPLOYMENT.md).
+
+Set `EXCHANGE_ENGINE_URL` in Vercel to the URL of the authoritative native engine.
 
 ## Build
 
@@ -58,7 +66,7 @@ The core invariant is deterministic state reconstruction from an ordered durable
 
 ## Deployment target
 
-The reference deployment targets Oracle Cloud Always Free Ampere A1 on a small Arm64 Linux VM. The production execution model is one authoritative exchange process with RAM-resident books, a durable command journal, snapshots, and systemd restart/recovery. Networked Raft is not required for the central execution path.
+The reference authoritative deployment targets Oracle Cloud Always Free Ampere A1 on a small Arm64 Linux VM. The Vercel project is the public cockpit/control plane; it is not a second matching authority. One authoritative exchange process owns the live books, canonical sequence, and durable command journal.
 
 ## Benchmarks
 
@@ -67,7 +75,6 @@ Benchmark workflows measure throughput and latency on the actual CI runner. Hard
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
-
 
 ## Oracle Always Free recovery benchmark
 

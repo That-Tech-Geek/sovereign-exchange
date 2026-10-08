@@ -1,0 +1,50 @@
+name: Vercel Exchange Contract
+
+on:
+  push:
+    branches: [ "main", "feat/vercel-runtime" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust format
+        run: cd exchange_core && cargo fmt -- --check
+
+      - name: Rust tests
+        run: cd exchange_core && cargo test --all-targets --all-features
+
+      - name: Rust clippy
+        run: cd exchange_core && cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Frontend Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Frontend dependencies
+        run: npm install --ignore-scripts
+
+      - name: Frontend typecheck
+        run: npm run lint
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: Exchange/Vercel contract scan
+        run: node scripts/check_vercel_contract.mjs

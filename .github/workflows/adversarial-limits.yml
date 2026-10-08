@@ -1,0 +1,60 @@
+name: Exchange Adversarial Limits
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  limits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build adversarial test binary outside memory cap
+        working-directory: exchange_core
+        run: cargo test --release --test adversarial_limits --no-run
+
+      - name: Run adversarial suite under hard 225 MiB cgroup limit
+        working-directory: exchange_core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CGROUP="/sys/fs/cgroup/exchange-adversarial-$GITHUB_RUN_ID"
+          LIMIT=$((225 * 1024 * 1024))
+
+          if [[ ! -f /sys/fs/cgroup/cgroup.controllers ]]; then
+            echo "::error::cgroup v2 is required for the hard 225 MiB memory gate"
+            exit 1
+          fi
+
+          sudo mkdir "$CGROUP"
+          trap 'sudo rmdir "$CGROUP" 2>/dev/null || true' EXIT
+
+          echo "$LIMIT" | sudo tee "$CGROUP/memory.max" >/dev/null
+          echo 0 | sudo tee "$CGROUP/memory.swap.max" >/dev/null
+
+          TEST_BIN="$(find target/release/deps -maxdepth 1 -type f -executable -name 'adversarial_limits-*' | head -n 1)"
+          if [[ -z "$TEST_BIN" ]]; then
+            echo "::error::adversarial_limits test binary not found"
+            exit 1
+          fi
+
+          echo "Running $TEST_BIN with memory.max=$LIMIT bytes"
+          sudo sh -c "echo \$\$ > '$CGROUP/cgroup.procs'; exec '$TEST_BIN' --nocapture --test-threads=1"
+
+          PEAK="$(sudo cat "$CGROUP/memory.peak")"
+          CURRENT="$(sudo cat "$CGROUP/memory.current")"
+          echo "cgroup memory peak: $PEAK bytes"
+          echo "cgroup memory current: $CURRENT bytes"
+
+          if (( PEAK > LIMIT )); then
+            echo "::error::exchange exceeded the 225 MiB memory ceiling"
+            exit 1
+          fi

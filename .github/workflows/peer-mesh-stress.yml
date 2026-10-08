@@ -1,0 +1,31 @@
+name: Rust Peer Mesh Stress
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  peer-mesh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: exchange_core
+      - name: Compile Rust peer node
+        run: cargo check --manifest-path exchange_node/Cargo.toml
+      - name: Run UDP peer mesh stress
+        working-directory: exchange_core
+        run: cargo run --release --bin peer_mesh_stress | tee peer_mesh_stress.txt
+      - name: Upload stress report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-peer-mesh-stress
+          path: exchange_core/peer_mesh_stress.txt
