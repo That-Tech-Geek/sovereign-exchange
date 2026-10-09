@@ -16,29 +16,164 @@ pub enum PoolError {
     Exhausted,
 }
 
-#[repr(C, align(64))]
+/// Compact hot-path order state.
+///
+/// Five million slots at 44 bytes consume 220,000,044 bytes including the
+/// reserved index 0. Instrument, side and command kind are bit-packed into
+/// one u32. For a pending Replace command, the prev field temporarily carries
+/// the target client-order ID; it is cleared before the replacement enters the
+/// book and resumes its normal FIFO-link role.
+#[repr(C, packed(1))]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Order {
-    pub exchange_order_id: u64,
+    exchange_order_id: [u8; 5],
     pub client_order_id: u64,
+    sequence_number: [u8; 7],
     pub account_id: u32,
-    pub instrument_id: u16,
-    pub side: u8,
-    pub command_kind: u8,
     pub price: u32,
-    pub quantity: u32,
     pub remaining: u32,
-    pub next: u32,
-    pub prev: u32,
-    pub sequence_number: u64,
-    pub client_timestamp: u64,
-    pub replace_target_client_order_id: u64,
+    links: [u8; 6],
+    meta: [u8; 2],
+}
+
+const _: () = assert!(std::mem::size_of::<Order>() == 40);
+pub const MAX_PACKED_EXCHANGE_ORDER_ID: u64 = (1u64 << 40) - 1;
+pub const MAX_PACKED_SEQUENCE_NUMBER: u64 = (1u64 << 56) - 1;
+const EXCHANGE_ID_MASK: u64 = MAX_PACKED_EXCHANGE_ORDER_ID;
+const SEQUENCE_MASK: u64 = MAX_PACKED_SEQUENCE_NUMBER;
+
+const LINK_MASK: u32 = (1 << 23) - 1;
+const FREE_SENTINEL: u32 = LINK_MASK;
+const INSTRUMENT_MASK: u32 = 0x01FF;
+const SIDE_SHIFT: u32 = 9;
+const KIND_SHIFT: u32 = 11;
+const SIDE_MASK: u32 = 0x3;
+const KIND_MASK: u32 = 0x3;
+
+impl Order {
+    #[inline(always)]
+    pub fn exchange_order_id(&self) -> u64 {
+        let mut b = [0u8; 8];
+        b[..5].copy_from_slice(&self.exchange_order_id);
+        u64::from_le_bytes(b)
+    }
+
+    #[inline(always)]
+    fn set_exchange_order_id(&mut self, value: u64) {
+        assert!(value <= EXCHANGE_ID_MASK);
+        self.exchange_order_id
+            .copy_from_slice(&value.to_le_bytes()[..5]);
+    }
+
+    #[inline(always)]
+    pub fn sequence_number(&self) -> u64 {
+        let mut b = [0u8; 8];
+        b[..7].copy_from_slice(&self.sequence_number);
+        u64::from_le_bytes(b)
+    }
+
+    #[inline(always)]
+    fn set_sequence_number(&mut self, value: u64) {
+        assert!(value <= SEQUENCE_MASK);
+        self.sequence_number
+            .copy_from_slice(&value.to_le_bytes()[..7]);
+    }
+
+    #[inline(always)]
+    pub fn client_order_id(&self) -> u64 {
+        self.client_order_id
+    }
+
+    #[inline(always)]
+    pub fn remaining(&self) -> u32 {
+        self.remaining
+    }
+
+    #[inline(always)]
+    fn links_u64(&self) -> u64 {
+        let mut b = [0u8; 8];
+        b[..6].copy_from_slice(&self.links);
+        u64::from_le_bytes(b)
+    }
+
+    #[inline(always)]
+    fn set_links_u64(&mut self, value: u64) {
+        self.links.copy_from_slice(&value.to_le_bytes()[..6]);
+    }
+
+    #[inline(always)]
+    pub fn next(&self) -> u32 {
+        (self.links_u64() as u32) & LINK_MASK
+    }
+
+    #[inline(always)]
+    pub fn prev(&self) -> u32 {
+        ((self.links_u64() >> 23) as u32) & LINK_MASK
+    }
+
+    #[inline(always)]
+    pub fn set_next(&mut self, value: u32) {
+        assert!(value <= LINK_MASK);
+        let prev = self.prev();
+        self.set_links_u64(value as u64 | ((prev as u64) << 23));
+    }
+
+    #[inline(always)]
+    pub fn set_prev(&mut self, value: u32) {
+        assert!(value <= LINK_MASK);
+        let next = self.next();
+        self.set_links_u64(next as u64 | ((value as u64) << 23));
+    }
+
+    #[inline(always)]
+    fn meta_u32(&self) -> u32 {
+        u16::from_le_bytes([self.meta[0], self.meta[1]]) as u32
+    }
+
+    #[inline(always)]
+    fn set_meta_u32(&mut self, value: u32) {
+        let b = (value as u16).to_le_bytes();
+        self.meta.copy_from_slice(&b);
+    }
+
+    #[inline(always)]
+    pub fn instrument_id(&self) -> u16 {
+        (self.meta_u32() & INSTRUMENT_MASK) as u16
+    }
+
+    #[inline(always)]
+    pub fn side(&self) -> u8 {
+        ((self.meta_u32() >> SIDE_SHIFT) & SIDE_MASK) as u8
+    }
+
+    #[inline(always)]
+    pub fn command_kind(&self) -> u8 {
+        ((self.meta_u32() >> KIND_SHIFT) & KIND_MASK) as u8
+    }
+
+    #[inline(always)]
+    pub fn set_meta(&mut self, instrument_id: u16, side: u8, command_kind: CommandKind) {
+        assert!((instrument_id as u32) <= INSTRUMENT_MASK);
+        self.set_meta_u32(
+            instrument_id as u32
+                | ((side as u32 & SIDE_MASK) << SIDE_SHIFT)
+                | (((command_kind as u32) & KIND_MASK) << KIND_SHIFT),
+        );
+    }
+
+    #[inline(always)]
+    pub fn set_command_kind_new(&mut self) {
+        let mut meta = self.meta_u32();
+        meta = (meta & !(KIND_MASK << KIND_SHIFT)) | ((CommandKind::New as u32) << KIND_SHIFT);
+        self.set_meta_u32(meta);
+    }
 }
 
 pub struct OrderPool {
     pub data: Vec<Order>,
     pub free_head: u32,
     pub allocated_count: u32,
+    next_unallocated: u32,
 }
 
 impl Default for OrderPool {
@@ -49,27 +184,45 @@ impl Default for OrderPool {
 
 impl OrderPool {
     pub fn new() -> Self {
-        let mut data = Vec::with_capacity(MAX_ORDERS);
-        data.resize(MAX_ORDERS, Order::default());
-        for (i, order) in data.iter_mut().enumerate().take(MAX_ORDERS - 1).skip(1) {
-            order.next = (i + 1) as u32;
-        }
-        data[MAX_ORDERS - 1].next = u32::MAX;
+        // Reserve the full logical pool address space, but lazily commit order
+        // records as they are admitted. This preserves the 5,000,000-slot
+        // capacity without forcing an idle exchange to consume the entire
+        // memory envelope.
+        let mut data = Vec::with_capacity(MAX_ORDERS + 1);
+        data.push(Order::default());
         Self {
             data,
-            free_head: 1,
+            free_head: FREE_SENTINEL,
             allocated_count: 0,
+            next_unallocated: 1,
         }
     }
 
     #[inline(always)]
     pub fn allocate(&mut self) -> Result<u32, PoolError> {
-        let idx = self.free_head;
-        if idx == u32::MAX {
+        let idx;
+        if self.free_head == u32::MAX {
+            return Err(PoolError::Exhausted);
+        } else if self.free_head == FREE_SENTINEL {
+            if self.next_unallocated > MAX_ORDERS as u32 {
+                return Err(PoolError::Exhausted);
+            }
+            idx = self.next_unallocated;
+            self.data.push(Order::default());
+            self.next_unallocated += 1;
+        } else if self.free_head < self.data.len() as u32 {
+            idx = self.free_head;
+            self.free_head = self.data[idx as usize].next();
+            self.data[idx as usize] = Order::default();
+        } else if self.free_head == self.next_unallocated
+            && self.next_unallocated <= MAX_ORDERS as u32
+        {
+            idx = self.next_unallocated;
+            self.data.push(Order::default());
+            self.next_unallocated += 1;
+        } else {
             return Err(PoolError::Exhausted);
         }
-        self.free_head = self.data[idx as usize].next;
-        self.data[idx as usize] = Order::default();
         self.allocated_count += 1;
         Ok(idx)
     }
@@ -87,42 +240,43 @@ impl OrderPool {
             OrderCommand::New(order_cmd) => {
                 order.client_order_id = order_cmd.client_order_id.0;
                 order.account_id = order_cmd.account_id;
-                order.instrument_id = order_cmd.instrument_id;
-                order.side = order_cmd.side.wire_value();
-                order.command_kind = CommandKind::New as u8;
+                order.set_meta(
+                    order_cmd.instrument_id,
+                    order_cmd.side.wire_value(),
+                    CommandKind::New,
+                );
                 order.price = order_cmd.price;
-                order.quantity = order_cmd.quantity;
                 order.remaining = order_cmd.quantity;
-                order.sequence_number = sequence_number.0;
-                order.client_timestamp = order_cmd.client_timestamp;
+                order.set_sequence_number(sequence_number.0);
             }
             OrderCommand::Cancel(cancel_cmd) => {
                 order.client_order_id = cancel_cmd.client_order_id.0;
                 order.account_id = cancel_cmd.account_id;
-                order.instrument_id = cancel_cmd.instrument_id;
-                order.command_kind = CommandKind::Cancel as u8;
-                order.sequence_number = sequence_number.0;
+                order.set_meta(cancel_cmd.instrument_id, 0, CommandKind::Cancel);
+                order.set_sequence_number(sequence_number.0);
             }
             OrderCommand::Replace(replace_cmd) => {
+                if replace_cmd.target_client_order_id.0 > u32::MAX as u64 {
+                    self.deallocate(idx);
+                    return Err(PoolError::Exhausted);
+                }
                 order.client_order_id = replace_cmd.new_client_order_id.0;
                 order.account_id = replace_cmd.account_id;
-                order.instrument_id = replace_cmd.instrument_id;
-                order.side = replace_cmd.side.wire_value();
-                order.command_kind = CommandKind::Replace as u8;
+                order.set_meta(
+                    replace_cmd.instrument_id,
+                    replace_cmd.side.wire_value(),
+                    CommandKind::Replace,
+                );
                 order.price = replace_cmd.price;
-                order.quantity = replace_cmd.quantity;
                 order.remaining = replace_cmd.quantity;
-                order.sequence_number = sequence_number.0;
-                order.client_timestamp = replace_cmd.client_timestamp;
-                order.replace_target_client_order_id = replace_cmd.target_client_order_id.0;
+                order.set_sequence_number(sequence_number.0);
+                order.set_prev(replace_cmd.target_client_order_id.0 as u32);
             }
         }
-        order.exchange_order_id = exchange_order_id.0;
+        order.set_exchange_order_id(exchange_order_id.0);
         Ok(idx)
     }
 
-    /// Legacy packet adapter. Production ingress should decode to OrderCommand
-    /// before reaching the pool; this helper exists for compatibility tests.
     #[inline(always)]
     pub fn allocate_from_packet(
         &mut self,
@@ -147,11 +301,16 @@ impl OrderPool {
     }
 
     #[inline(always)]
+    pub fn max_capacity(&self) -> usize {
+        MAX_ORDERS
+    }
+
+    #[inline(always)]
     pub fn deallocate(&mut self, idx: u32) {
         if idx == NULL_ORDER {
             return;
         }
-        self.data[idx as usize].next = self.free_head;
+        self.data[idx as usize].set_next(self.free_head);
         self.free_head = idx;
         self.allocated_count -= 1;
     }

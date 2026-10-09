@@ -8,7 +8,7 @@ use crate::pool::OrderPool;
 pub struct PriceLevel {
     pub head: u32,
     pub tail: u32,
-    pub volume: u32,
+    pub volume: u64,
     pub order_count: u32,
 }
 
@@ -63,7 +63,7 @@ impl OrderBook {
 
     #[inline(always)]
     pub fn insert_limit(&mut self, idx: u32, pool: &mut OrderPool) {
-        let side = pool.data[idx as usize].side;
+        let side = pool.data[idx as usize].side();
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
         let key = OrderKey {
@@ -80,22 +80,22 @@ impl OrderBook {
         if level.tail == NULL_ORDER {
             level.head = idx;
         } else {
-            pool.data[level.tail as usize].next = idx;
-            pool.data[idx as usize].prev = level.tail;
+            pool.data[level.tail as usize].set_next(idx);
+            pool.data[idx as usize].set_prev(level.tail);
         }
         level.tail = idx;
-        level.volume += remaining;
+        level.volume = level.volume.saturating_add(remaining as u64);
         level.order_count += 1;
         self.order_map.insert(key, idx);
     }
 
     #[inline(always)]
     pub fn remove_order(&mut self, idx: u32, pool: &mut OrderPool) {
-        let side = pool.data[idx as usize].side;
+        let side = pool.data[idx as usize].side();
         let price = pool.data[idx as usize].price;
         let remaining = pool.data[idx as usize].remaining;
-        let prev = pool.data[idx as usize].prev;
-        let next = pool.data[idx as usize].next;
+        let prev = pool.data[idx as usize].prev();
+        let next = pool.data[idx as usize].next();
         let key = OrderKey {
             account_id: pool.data[idx as usize].account_id,
             client_order_id: ClientOrderId(pool.data[idx as usize].client_order_id),
@@ -110,16 +110,16 @@ impl OrderBook {
 
         if let Some(level) = map.get_mut(&price) {
             if prev != NULL_ORDER {
-                pool.data[prev as usize].next = next;
+                pool.data[prev as usize].set_next(next);
             } else {
                 level.head = next;
             }
             if next != NULL_ORDER {
-                pool.data[next as usize].prev = prev;
+                pool.data[next as usize].set_prev(prev);
             } else {
                 level.tail = prev;
             }
-            level.volume = level.volume.saturating_sub(remaining);
+            level.volume = level.volume.saturating_sub(remaining as u64);
             level.order_count = level.order_count.saturating_sub(1);
             if level.head == NULL_ORDER || level.order_count == 0 {
                 map.remove(&price);
