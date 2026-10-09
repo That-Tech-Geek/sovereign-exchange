@@ -18,44 +18,41 @@ fn packet(id: u64, account: u32, side: u8, price: u32, quantity: u32) -> OrderPa
 
 #[test]
 fn pool_reaches_declared_capacity_and_rejects_without_advancing_sequence() {
-    let mut pool = OrderPool::new();
-    assert_eq!(pool.max_capacity(), MAX_ORDERS);
-    assert!(pool.data.capacity() > MAX_ORDERS);
-
-    // Physical commitment is bounded by the memory gate; the logical pool
-    // remains a 5,000,000-slot reservation.
-    for _ in 0..100_000 {
-        pool.allocate().unwrap();
-    }
-    assert_eq!(pool.allocated_count, 100_000);
-    assert!(pool.allocate().is_ok());
-
-    // Pool exhaustion is an ingress rejection, not a canonical sequence event.
-    // The engine starts with the full logical capacity reserved but no order
-    // records physically committed.
     let mut engine = MatchingEngine::new();
-    let rejected = engine.accept_order(&packet(1, 1, 1, 10_000, 1));
-    assert!(rejected.is_ok());
-    let accepted = rejected.unwrap();
+    assert_eq!(engine.pool.max_capacity(), MAX_ORDERS);
+    assert!(engine.pool.data.capacity() > MAX_ORDERS);
+
+    // Touch every slot: this measures the real resident-memory cost of the
+    // full 5,000,000-order capacity rather than merely reserving virtual space.
+    for _ in 0..MAX_ORDERS {
+        engine.pool.allocate().unwrap();
+    }
+    assert_eq!(engine.pool.allocated_count as usize, MAX_ORDERS);
+    assert!(engine.pool.allocate().is_err());
+
+    // Exhaustion is rejected before canonical sequence or exchange IDs advance.
+    engine.pool.deallocate(MAX_ORDERS as u32);
+    let accepted = engine.accept_order(&packet(1, 1, 1, 10_000, 1)).unwrap();
     assert_eq!(accepted.sequence_number.0, 1);
 }
 
 #[test]
 fn pool_reuses_a_slot_after_full_capacity() {
     let mut pool = OrderPool::new();
-    for _ in 0..100_000 {
+    for _ in 0..MAX_ORDERS {
         pool.allocate().unwrap();
     }
-    assert_eq!(pool.allocated_count as usize, 100_000);
+    assert_eq!(pool.allocated_count as usize, MAX_ORDERS);
+    assert!(pool.allocate().is_err());
 
-    let freed = 100_000u32;
+    let freed = MAX_ORDERS as u32;
     pool.deallocate(freed);
-    assert_eq!(pool.allocated_count as usize, 99_999);
+    assert_eq!(pool.allocated_count as usize, MAX_ORDERS - 1);
 
     let reused = pool.allocate().unwrap();
     assert_eq!(reused, freed);
-    assert_eq!(pool.allocated_count as usize, 100_000);
-    assert!(pool.allocate().is_ok());
+    assert_eq!(pool.allocated_count as usize, MAX_ORDERS);
+    assert!(pool.allocate().is_err());
 }
 
 #[test]
